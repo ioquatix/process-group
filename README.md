@@ -1,0 +1,114 @@
+# Process::Group
+
+`Process::Group` allows for multiple fibers to run system processes concurrently with minimal overhead.
+
+## Installation
+
+Add this line to your application's Gemfile:
+
+    gem 'process-group'
+
+And then execute:
+
+    $ bundle
+
+Or install it yourself as:
+
+    $ gem install process-group
+
+## Usage
+
+The simplest concurrent usage is as follows:
+
+	group = Process::Group.new
+	
+	group.run("sleep 1") do |exit_status|
+		puts "Command finished with status: #{exit_status}"
+	end
+	
+	group.wait
+
+### Explicit Fibers
+
+Items within a single fiber will execute sequentially. Processes (e.g. via Group#spawn) will run concurrently in multiple fibers.
+
+	group = Process::Group.new
+	
+	Fiber.new do
+		group.spawn("sleep 1")
+		group.spawn("sleep 1")
+	end
+	
+	group.wait
+
+`Group#spawn` is theoretically identical to `Process#spawn` except the processes are run concurrently if possible.
+
+### Specify Options
+
+You can specify options to `Group#run` and `Group#spawn` just like `Process#spawn` e.g. `cwd:`
+
+	group = Process::Group.new
+	
+	env = {'FOO' => 'BAR'}
+	
+	group.run(env, "sleep 1", chdir: "/tmp")
+	
+	group.wait
+
+### Process Limit
+
+The process group can be used as a way to spawn multiple processes, but sometimes you'd like to limit the number of parallel processes to something relating to the number of processors in the system. A number of options exist.
+
+	# 'facter' gem - found a bit slow to initialise, but most widely supported.
+	require 'facter'
+	group = Process::Group.new(limit: Facter.processorcount)
+	
+	# 'system' gem - found very fast, less wide support (but nothing really important).
+	require 'system'
+	group = Process::Group.new(limit: System::CPU.count)
+	
+	# hardcoded - set to n (8 < n < 32) and let the OS scheduler worry about it.
+	group = Process::Group.new(limit: 32)
+	
+	# unlimited - default.
+	group = Process::Group.new
+
+### Kill Group
+
+It is possible to send a signal (kill) to the entire process group:
+
+	group.kill(:TERM)
+
+If there are no running processes, this is a no-op (rather than an error).
+
+## Contributing
+
+1. Fork it
+2. Create your feature branch (`git checkout -b my-new-feature`)
+3. Commit your changes (`git commit -am 'Add some feature'`)
+4. Push to the branch (`git push origin my-new-feature`)
+5. Create new Pull Request
+
+## License
+
+Released under the MIT license.
+
+Copyright, 2014, by [Samuel G. D. Williams](http://www.codeotaku.com/samuel-williams).
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
