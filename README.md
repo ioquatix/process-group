@@ -20,37 +20,51 @@ Or install it yourself as:
 
 The simplest concurrent usage is as follows:
 
+	# Create a new process group:
 	group = Process::Group.new
 	
+	# Run the command (non-blocking):
 	group.run("sleep 1") do |exit_status|
+		# Running in a separate fiber, will execute this code once the process completes:
 		puts "Command finished with status: #{exit_status}"
 	end
 	
+	# Do something else here:
+	sleep(1)
+	
+	# Wait for all processes in group to finish:
 	group.wait
 
 ### Explicit Fibers
 
-Items within a single fiber will execute sequentially. Processes (e.g. via Group#spawn) will run concurrently in multiple fibers.
+Items within a single fiber will execute sequentially. Processes (e.g. via `Group#spawn`) will run concurrently in multiple fibers.
 
 	group = Process::Group.new
 	
+	# Explicity manage concurrency in this fiber:
 	Fiber.new do
+		# These processes will be run sequentially:
 		group.spawn("sleep 1")
 		group.spawn("sleep 1")
-	end
+	end.resume
 	
+	# Implicitly run this task concurrently as the above fiber:
+	group.run("sleep 2")
+	
+	# Wait for fiber to complete:
 	group.wait
 
 `Group#spawn` is theoretically identical to `Process#spawn` except the processes are run concurrently if possible.
 
 ### Specify Options
 
-You can specify options to `Group#run` and `Group#spawn` just like `Process#spawn` e.g. `cwd:`
+You can specify options to `Group#run` and `Group#spawn` just like `Process::spawn`:
 
 	group = Process::Group.new
 	
 	env = {'FOO' => 'BAR'}
 	
+	# Arguments are essentially the same as Process::spawn.
 	group.run(env, "sleep 1", chdir: "/tmp")
 	
 	group.wait
