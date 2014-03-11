@@ -4,7 +4,7 @@ $LOAD_PATH.unshift(lib) unless $LOAD_PATH.include?(lib)
 require 'process/group/version'
 
 Gem::Specification.new do |spec|
-	spec.name          = "process-pool"
+	spec.name          = "process-group"
 	spec.version       = Process::Group::VERSION
 	spec.authors       = ["Samuel Williams"]
 	spec.email         = ["samuel.williams@oriontransfer.co.nz"]
