@@ -72,7 +72,7 @@ module Process
 			Fiber.new do
 				exit_status = self.spawn(*arguments)
 				
-				yield exit_status
+				yield exit_status if block_given?
 			end.resume
 		end
 		

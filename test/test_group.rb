@@ -85,4 +85,22 @@ class TestGroup < Test::Unit::TestCase
 		
 		assert_equal "BAR\n", input.read
 	end
+	
+	def test_yield
+		group = Process::Group.new
+		
+		start_time = Time.now
+		
+		group.run("sleep 1")
+		
+		group.run("sleep 1") do |exit_status|
+		end
+		
+		group.wait
+		
+		end_time = Time.now
+		
+		# Check that the execution time was roughly 1 second:
+		assert (0.9..1.1).include?(end_time - start_time)
+	end
 end
