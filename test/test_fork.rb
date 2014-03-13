@@ -22,8 +22,8 @@ require 'test/unit'
 
 require 'process/group'
 
-class TestSpawn < Test::Unit::TestCase
-	def test_spawning_concurrent_io
+class TestFork < Test::Unit::TestCase
+	def test_fork_io
 		group = Process::Group.new
 		
 		input, output = IO.pipe

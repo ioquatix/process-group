@@ -22,7 +22,7 @@ require 'test/unit'
 
 require 'process/group'
 
-class TestGroup < Test::Unit::TestCase
+class TestSpawn < Test::Unit::TestCase
 	def test_fibers
 		group = Process::Group.new
 		
