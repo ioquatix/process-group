@@ -133,8 +133,6 @@ module Process
 		# Wait for all processes to finish, naturally would schedule any fibers which are currently blocked.
 		def wait
 			while @running.size > 0
-				puts "Waiting for group id=#{-@pgid}"
-				
 				# Wait for processes in this group:
 				pid, status = Process.wait2(-@pgid)
 			
