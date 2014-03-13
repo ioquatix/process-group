@@ -34,7 +34,15 @@ class TestGroup < Test::Unit::TestCase
 		end.resume
 		
 		Fiber.new do
-			result = group.spawn("sleep 2")
+			child_pid = nil
+			
+			result = group.spawn("sleep 2") do |pid|
+				child_pid = pid
+				
+				# If you block in here, you will block the entire group.
+			end
+			
+			assert_not_nil child_pid
 			assert_equal 0, result
 		end.resume
 		

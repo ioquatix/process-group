@@ -35,7 +35,36 @@ module Process
 			attr :options
 		
 			def run(options = {})
-				Process.spawn(*@arguments, @options.merge(options))
+				@pid = Process.spawn(*@arguments, @options.merge(options))
+				
+				return @pid
+			end
+		
+			def resume(*arguments)
+				@fiber.resume(*arguments)
+			end
+		end
+		
+		class Fork
+			def initialize(block, options, fiber = Fiber.current)
+				@options = options
+				@block = block
+				
+				@fiber = fiber
+			end
+			
+			def run(options = {})
+				@pid = Process.fork(&@block)
+				
+				if options[:pgroup] == true
+					# Establishes the child process as a process group leader:
+					Process.setpgid(@pid, 0)
+				else
+					# Set this process as part of the existing process group:
+					Process.setpgid(@pid, options[:pgroup])
+				end
+				
+				return @pid
 			end
 		
 			def resume(*arguments)
@@ -45,7 +74,7 @@ module Process
 		
 		# Create a new process group. Can specify `options[:limit]` which limits the maximum number of concurrent processes.
 		def initialize(options = {})
-			@commands = []
+			@queue = []
 			@limit = options[:limit]
 		
 			@running = {}
@@ -76,15 +105,14 @@ module Process
 			end.resume
 		end
 		
-		def spawn(*arguments)
 			# Could be nice to use ** splat, but excludes ruby < 2.0.
 			options = Hash === arguments.last ? arguments.pop : {}
 	
-			@commands << Command.new(arguments, options)
-	
-			schedule!
-	
-			Fiber.yield
+			append! Command.new(arguments, options)
+		end
+		
+		def fork(options = {}, &block)
+			append! Fork.new(block, options)
 		end
 		
 		# Whether not not calling run would be scheduled immediately.
@@ -104,17 +132,22 @@ module Process
 		# Wait for all processes to finish, naturally would schedule any fibers which are currently blocked.
 		def wait
 			while @running.size > 0
+				puts "Waiting for group id=#{-@pgid}"
+				
 				# Wait for processes in this group:
 				pid, status = Process.wait2(-@pgid)
 			
-				command = @running.delete(pid)
+				process = @running.delete(pid)
 			
-				raise RuntimeError.new("Process #{pid} is not part of group!") unless command
+				raise RuntimeError.new("Process id=#{pid} is not part of group!") unless process
 			
 				schedule!
 			
-				command.resume(status)
+				process.resume(status)
 			end
+			
+			# No processes, process group is no longer valid:
+			@pgid = nil
 		end
 		
 		# Send a signal to all processes.
@@ -126,19 +159,29 @@ module Process
 		
 		private
 		
-		# Run any commands while space is available in the group.
+		def append!(process)
+			@queue << process
+			
+			schedule!
+			
+			Fiber.yield
+		end
+		
+		# Run any processes while space is available in the group.
 		def schedule!
-			while available? and @commands.size > 0
-				command = @commands.shift
+			while available? and @queue.size > 0
+				process = @queue.shift
 			
 				if @running.size == 0
-					pid = command.run(:pgroup => true)
-					@pgid = Process.getpgid(pid)
+					pid = process.run(:pgroup => true)
+					
+					# The process group id is the pid of the first process:
+					@pgid = pid
 				else
-					pid = command.run(:pgroup => @pgid)
+					pid = process.run(:pgroup => @pgid)
 				end
 			
-				@running[pid] = command
+				@running[pid] = process
 			end
 		end
 	end
