@@ -24,11 +24,14 @@ module Process
 	# A group of tasks which can be run asynchrnously using fibers. Someone must call Group#wait to ensure that all fibers eventually resume.
 	class Group
 		class Command
-			def initialize(arguments, options, fiber = Fiber.current)
+			def initialize(arguments, options, fiber = Fiber.current, &block)
 				@arguments = arguments
 				@options = options
 			
 				@fiber = fiber
+				
+				# Called when the process is spawned:
+				@block = block
 			end
 		
 			attr :arguments
@@ -36,6 +39,8 @@ module Process
 		
 			def run(options = {})
 				@pid = Process.spawn(*@arguments, @options.merge(options))
+				
+				@block.call(@pid) if @block
 				
 				return @pid
 			end
@@ -105,10 +110,11 @@ module Process
 			end.resume
 		end
 		
+		def spawn(*arguments, &block)
 			# Could be nice to use ** splat, but excludes ruby < 2.0.
 			options = Hash === arguments.last ? arguments.pop : {}
 	
-			append! Command.new(arguments, options)
+			append! Command.new(arguments, options, &block)
 		end
 		
 		def fork(options = {}, &block)
