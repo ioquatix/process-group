@@ -35,6 +35,7 @@ class TestGroup < Test::Unit::TestCase
 		
 		Fiber.new do
 			result = group.spawn("sleep 2")
+			
 			assert_equal 0, result
 		end.resume
 		
