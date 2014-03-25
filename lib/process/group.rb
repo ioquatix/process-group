@@ -96,6 +96,10 @@ module Process
 			-@pgid
 		end
 
+		def running?
+			@running.size > 0
+		end
+
 		# Run a process, arguments have same meaning as Process#spawn.
 		def run(*arguments)
 			Fiber.new do
@@ -132,26 +136,31 @@ module Process
 		
 		# Wait for all processes to finish, naturally would schedule any fibers which are currently blocked.
 		def wait
-			while @running.size > 0
-				# Wait for processes in this group:
-				pid, status = Process.wait2(-@pgid)
-			
-				process = @running.delete(pid)
-			
-				raise RuntimeError.new("Process id=#{pid} is not part of group!") unless process
-			
+			while running?
+				process, status = wait_one
+				
 				schedule!
-			
+				
 				process.resume(status)
 			end
 			
 			# No processes, process group is no longer valid:
 			@pgid = nil
+		rescue Interrupt
+			# If the user interrupts the wait, interrupt the process group and wait for them to finish:
+			kill(:INT)
+			
+			while running?
+				process, status = wait_one
+			end
+		ensure
+			# You'd only get here with running processes if some unexpected error was thrown:
+			kill(:TERM)
 		end
 		
 		# Send a signal to all processes.
 		def kill(signal)
-			if @running.size > 0
+			if running?
 				Process.kill(signal, id)
 			end
 		end
@@ -182,6 +191,24 @@ module Process
 			
 				@running[pid] = process
 			end
+		end
+		
+		# Wait for one process, should only be called when a child process has finished, otherwise would block.
+		
+		def wait_one(flags = 0)
+			raise RuntimeError.new("Process group has no running children!") unless running?
+			
+			# Wait for processes in this group:
+			pid, status = Process.wait2(-@pgid, flags)
+		
+			return if flags & Process::WNOHANG and pid == nil
+		
+			process = @running.delete(pid)
+		
+			# This should never happen unless something very odd has happened:
+			raise RuntimeError.new("Process id=#{pid} is not part of group!") unless process
+			
+			return process, status
 		end
 	end
 end
