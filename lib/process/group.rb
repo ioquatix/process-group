@@ -148,14 +148,18 @@ module Process
 			@pgid = nil
 		rescue Interrupt
 			# If the user interrupts the wait, interrupt the process group and wait for them to finish:
-			kill(:INT)
+			self.kill(:INT)
 			
-			while running?
-				process, status = wait_one
-			end
+			# If user presses Ctrl-C again (or something else goes wrong), we will come out and kill(:TERM) in the ensure below:
+			wait_all
+			
+			raise
 		ensure
 			# You'd only get here with running processes if some unexpected error was thrown:
-			kill(:TERM)
+			self.kill(:TERM)
+			
+			# Clean up zombie processes - if user presses Ctrl-C or for some reason something else blows up, exception would propagate back to caller:
+			wait_all
 		end
 		
 		# Send a signal to all processes.
@@ -193,8 +197,12 @@ module Process
 			end
 		end
 		
-		# Wait for one process, should only be called when a child process has finished, otherwise would block.
+		# Wait for all children to exit but without resuming any controlling fibers.
+		def wait_all
+			wait_one while running?
+		end
 		
+		# Wait for one process, should only be called when a child process has finished, otherwise would block.
 		def wait_one(flags = 0)
 			raise RuntimeError.new("Process group has no running children!") unless running?
 			

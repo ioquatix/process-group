@@ -31,7 +31,7 @@ class TestInterrupt < Test::Unit::TestCase
 		Fiber.new do
 			checkpoint += 'X'
 			
-			result = group.spawn("sleep 0.5")
+			result = group.fork { sleep 0.1 }
 			assert_equal 0, result
 			
 			checkpoint += 'Y'
@@ -44,16 +44,19 @@ class TestInterrupt < Test::Unit::TestCase
 			checkpoint += 'A'
 			
 			# This never returns:
-			result = group.spawn("sleep 1")
+			result = group.fork { sleep 0.2 }
 			
 			checkpoint += 'B'
 		end.resume
 		
 		group.expects(:kill).with(:INT).once
 		group.expects(:kill).with(:TERM).once
-		group.wait
 		
-		assert 'XYA', checkpoint
+		assert_raises Interrupt do
+			group.wait
+		end
+		
+		assert_equal 'XAY', checkpoint
 	end
 	
 	def test_raise_exception
@@ -63,7 +66,7 @@ class TestInterrupt < Test::Unit::TestCase
 		Fiber.new do
 			checkpoint += 'X'
 			
-			result = group.spawn("sleep 0.5")
+			result = group.fork { sleep 0.1 }
 			assert_equal 0, result
 			
 			checkpoint += 'Y'
@@ -76,7 +79,7 @@ class TestInterrupt < Test::Unit::TestCase
 			checkpoint += 'A'
 			
 			# This never returns:
-			result = group.spawn("sleep 1")
+			result = group.fork { sleep 0.2 }
 			
 			checkpoint += 'B'
 		end.resume
@@ -87,6 +90,62 @@ class TestInterrupt < Test::Unit::TestCase
 			group.wait
 		end
 		
-		assert 'XYA', checkpoint
+		assert_equal 'XAY', checkpoint
+	end
+	
+	class Timeout < StandardError
+	end
+	
+	def test_timeout
+		group = Process::Group.new
+		checkpoint = ""
+		
+		Fiber.new do
+			# Wait for 2 seconds, let other processes run:
+			group.fork { sleep 2 }
+			checkpoint += 'A'
+			#puts "Finished waiting #1..."
+		
+			# If no other processes are running, we are done:
+			Fiber.yield unless group.running?
+			checkpoint += 'B'
+			#puts "Sending SIGINT..."
+		
+			# Send SIGINT to currently running processes:
+			group.kill(:INT)
+		
+			# Wait for 2 seconds, let other processes run:
+			group.fork { sleep 2 }
+			checkpoint += 'C'
+			#puts "Finished waiting #2..."
+		
+			# If no other processes are running, we are done:
+			Fiber.yield unless group.running?
+			checkpoint += 'D'
+			#puts "Sending SIGTERM..."
+		
+			# Send SIGTERM to currently running processes:
+			group.kill(:TERM)
+		
+			# Raise an Timeout exception which is based back out:
+			raise Timeout
+		end.resume
+	
+		# Run some other long task:
+		group.run("sleep 10")
+		
+		start_time = Time.now
+		
+		# Wait for fiber to complete:
+		assert_nothing_raised Timeout do
+			group.wait
+			checkpoint += 'E'
+		end
+		
+		end_time = Time.now
+		
+		assert_equal 'ABCE', checkpoint
+		
+		assert (3.9..4.1).include?(end_time - start_time)
 	end
 end

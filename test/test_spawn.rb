@@ -29,12 +29,12 @@ class TestSpawn < Test::Unit::TestCase
 		start_time = Time.now
 		
 		Fiber.new do
-			result = group.spawn("sleep 1")
+			result = group.fork { sleep 1.0 }
 			assert_equal 0, result
 		end.resume
 		
 		Fiber.new do
-			result = group.spawn("sleep 2")
+			result = group.fork { sleep 2.0 }
 			
 			assert_equal 0, result
 		end.resume
@@ -66,7 +66,7 @@ class TestSpawn < Test::Unit::TestCase
 		
 		end_time = Time.now
 		
-		# Check that the execution time was roughly 2 seconds:
+		# Check that processes killed almost immediately:
 		assert (end_time - start_time) < 0.1
 	end
 	

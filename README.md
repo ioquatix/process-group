@@ -37,6 +37,8 @@ The simplest concurrent usage is as follows:
 	# Wait for all processes in group to finish:
 	group.wait
 
+The `group.wait` call is an explicit synchronisation point, and if it completes successfully, all processes/fibers have finished successfully. If an error is raised in a fiber, it will be passed back out through `group.wait` and this is the only failure condition. Even if this occurs, all children processes are guaranteed to be cleaned up.
+
 ### Explicit Fibers
 
 Items within a single fiber will execute sequentially. Processes (e.g. via `Group#spawn`) will run concurrently in multiple fibers.
@@ -96,6 +98,52 @@ It is possible to send a signal (kill) to the entire process group:
 	group.kill(:TERM)
 
 If there are no running processes, this is a no-op (rather than an error).
+
+#### Handling Interrupts
+
+`Process::Graph` transparently handles `Interrupt` when raised within a `Fiber`. If `Interrupt` is raised, all children processes will be sent `kill(:INT)` and we will wait for all children to complete, but without resuming the controlling fibers. If `Interrupt` is raised during this process, children will be sent `kill(:TERM)`. After calling `Interrupt`, the fibers will not be resumed.
+
+### Process Timeout
+
+You can run a process group with a time limit by using a separate child process:
+
+	group = Process::Group.new
+	
+	class Timeout < StandardError
+	end
+	
+	Fiber.new do
+		# Wait for 2 seconds, let other processes run:
+		group.fork { sleep 2 }
+		
+		# If no other processes are running, we are done:
+		Fiber.yield unless group.running?
+		
+		# Send SIGINT to currently running processes:
+		group.kill(:INT)
+		
+		# Wait for 2 seconds, let other processes run:
+		group.fork { sleep 2 }
+		
+		# If no other processes are running, we are done:
+		Fiber.yield unless group.running?
+		
+		# Send SIGTERM to currently running processes:
+		group.kill(:TERM)
+		
+		# Raise an Timeout exception which is based back out:
+		raise Timeout
+	end.resume
+	
+	# Run some other long task:
+	group.run("sleep 10")
+	
+	# Wait for fiber to complete:
+	begin
+		group.wait
+	rescue Timeout
+		puts "Process group was terminated forcefully."
+	end
 
 ## Contributing
 
