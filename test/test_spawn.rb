@@ -18,11 +18,11 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
-require 'test/unit'
+require 'minitest/autorun'
 
 require 'process/group'
 
-class TestSpawn < Test::Unit::TestCase
+class TestSpawn < MiniTest::Test
 	def test_fibers
 		group = Process::Group.new
 		
@@ -30,6 +30,7 @@ class TestSpawn < Test::Unit::TestCase
 		
 		Fiber.new do
 			result = group.fork { sleep 1.0 }
+			
 			assert_equal 0, result
 		end.resume
 		
@@ -53,11 +54,11 @@ class TestSpawn < Test::Unit::TestCase
 		start_time = Time.now
 		
 		group.run("sleep 1") do |exit_status|
-			assert_not_equal 0, exit_status
+			refute_equal 0, exit_status
 		end
 		
 		group.run("sleep 2") do |exit_status|
-			assert_not_equal 0, exit_status
+			refute_equal 0, exit_status
 		end
 		
 		group.kill(:KILL)

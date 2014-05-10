@@ -18,11 +18,11 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
-require 'test/unit'
+require 'minitest/autorun'
 
 require 'process/group'
 
-class TestFork < Test::Unit::TestCase
+class TestFork < MiniTest::Test
 	def test_fork_io
 		group = Process::Group.new
 		
@@ -43,5 +43,20 @@ class TestFork < Test::Unit::TestCase
 		group.wait
 		
 		assert_equal "Hello World\n", input.read
+	end
+	
+	def test_fork_interrupt
+		group = Process::Group.new
+		
+		Fiber.new do
+			result = group.fork do
+				raise Interrupt
+			end
+			
+			refute_equal 0, result.exitstatus
+		end.resume
+		
+		# Shouldn't raise any errors:
+		group.wait
 	end
 end

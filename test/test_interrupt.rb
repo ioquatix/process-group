@@ -18,12 +18,12 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
-require 'test/unit'
-require 'mocha/test_unit'
+require 'minitest/autorun'
+require 'mocha/setup'
 
 require 'process/group'
 
-class TestInterrupt < Test::Unit::TestCase
+class TestInterrupt < MiniTest::Test
 	def test_raise_interrupt
 		group = Process::Group.new
 		checkpoint = ""
@@ -32,6 +32,7 @@ class TestInterrupt < Test::Unit::TestCase
 			checkpoint += 'X'
 			
 			result = group.fork { sleep 0.1 }
+			
 			assert_equal 0, result
 			
 			checkpoint += 'Y'
@@ -137,10 +138,10 @@ class TestInterrupt < Test::Unit::TestCase
 		start_time = Time.now
 		
 		# Wait for fiber to complete:
-		assert_nothing_raised Timeout do
+		#assert_nothing_raised Timeout do
 			group.wait
 			checkpoint += 'E'
-		end
+		#end
 		
 		end_time = Time.now
 		
