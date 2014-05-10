@@ -2,7 +2,7 @@
 
 `Process::Group` allows for multiple fibers to run system processes concurrently with minimal overhead.
 
-[![Build Status](https://travis-ci.org/ioquatix/process-group.png?branch=master)](https://travis-ci.org/ioquatix/process-group)
+[![Build Status](https://travis-ci.org/ioquatix/process-group.svg?branch=master)](https://travis-ci.org/ioquatix/process-group)
 
 ## Installation
 
