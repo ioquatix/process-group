@@ -18,11 +18,11 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
-require 'minitest/autorun'
+require 'betatest/autorun'
 
 require 'process/group'
 
-class TestSpawn < MiniTest::Test
+class TestSpawn < Betatest::Test
 	def test_fibers
 		group = Process::Group.new
 		
@@ -68,7 +68,7 @@ class TestSpawn < MiniTest::Test
 		end_time = Time.now
 		
 		# Check that processes killed almost immediately:
-		assert (end_time - start_time) < 0.1
+		assert (end_time - start_time) < 0.2, "Process exited quickly #{end_time - start_time}"
 	end
 	
 	def test_environment_options

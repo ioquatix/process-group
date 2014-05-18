@@ -18,11 +18,11 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
-require 'minitest/autorun'
+require 'betatest/autorun'
 
 require 'process/group'
 
-class TestFork < MiniTest::Test
+class TestFork < Betatest::Test
 	def test_fork_io
 		group = Process::Group.new
 		
