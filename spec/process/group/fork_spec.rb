@@ -18,45 +18,45 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
-require 'betatest/autorun'
-
 require 'process/group'
 
-class TestFork < Betatest::Test
-	def test_fork_io
-		group = Process::Group.new
+module Process::Group::ForkSpec
+	describe Process::Group do
+		it "should fork and write to pipe" do
+			group = Process::Group.new
 		
-		input, output = IO.pipe
+			input, output = IO.pipe
 		
-		Fiber.new do
-			result = group.fork do
-				output.puts "Hello World"
+			Fiber.new do
+				result = group.fork do
+					output.puts "Hello World"
 				
-				exit(1)
-			end
+					exit(1)
+				end
+				
+				expect(result.exitstatus).to be == 1
+			end.resume
+		
+			output.close
+		
+			group.wait
+		
+			expect(input.read).to be == "Hello World\n"
+		end
+		
+		it "should not throw interrupt from fork" do
+			group = Process::Group.new
+		
+			Fiber.new do
+				result = group.fork do
+					raise Interrupt
+				end
 			
-			assert_equal 1, result.exitstatus
-		end.resume
+				expect(result.exitstatus).not_to be == 0
+			end.resume
 		
-		output.close
-		
-		group.wait
-		
-		assert_equal "Hello World\n", input.read
-	end
-	
-	def test_fork_interrupt
-		group = Process::Group.new
-		
-		Fiber.new do
-			result = group.fork do
-				raise Interrupt
-			end
-			
-			refute_equal 0, result.exitstatus
-		end.resume
-		
-		# Shouldn't raise any errors:
-		group.wait
+			# Shouldn't raise any errors:
+			group.wait
+		end
 	end
 end
