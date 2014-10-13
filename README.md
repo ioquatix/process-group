@@ -101,7 +101,7 @@ If there are no running processes, this is a no-op (rather than an error).
 
 #### Handling Interrupts
 
-`Process::Graph` transparently handles `Interrupt` when raised within a `Fiber`. If `Interrupt` is raised, all children processes will be sent `kill(:INT)` and we will wait for all children to complete, but without resuming the controlling fibers. If `Interrupt` is raised during this process, children will be sent `kill(:TERM)`. After calling `Interrupt`, the fibers will not be resumed.
+`Process::Group` transparently handles `Interrupt` when raised within a `Fiber`. If `Interrupt` is raised, all children processes will be sent `kill(:INT)` and we will wait for all children to complete, but without resuming the controlling fibers. If `Interrupt` is raised during this process, children will be sent `kill(:TERM)`. After calling `Interrupt`, the fibers will not be resumed.
 
 ### Process Timeout
 
