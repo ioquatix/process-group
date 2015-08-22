@@ -109,14 +109,11 @@ module Process
 			end.resume
 		end
 		
-		def spawn(*arguments)
-			# Could be nice to use ** splat, but excludes ruby < 2.0.
-			options = Hash === arguments.last ? arguments.pop : {}
-	
+		def spawn(*arguments, **options)
 			append! Command.new(arguments, options)
 		end
 		
-		def fork(options = {}, &block)
+		def fork(**options, &block)
 			append! Fork.new(block, options)
 		end
 		
