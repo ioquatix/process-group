@@ -12,7 +12,7 @@ Gem::Specification.new do |spec|
 	Manages a unix process group for running multiple processes, keeps track of multiple processes and leverages fibers to provide predictable behaviour in complicated process-based scripts.
 	EOF
 	spec.summary       = %q{Run processes concurrently in separate fibers with predictable behaviour.}
-	spec.homepage      = ""
+	spec.homepage      = "https://github.com/ioquatix/process-group"
 	spec.license       = "MIT"
 
 	spec.files         = `git ls-files`.split($/)
