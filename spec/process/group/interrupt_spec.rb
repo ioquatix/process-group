@@ -144,7 +144,7 @@ module Process::Group::InterruptSpec
 			end_time = Time.now
 		
 			expect(checkpoint).to be == 'ABCE'
-			expect(end_time - start_time).to be_within(0.1).of 4.0
+			expect(end_time - start_time).to be_within(0.2).of 4.0
 		end
 	end
 end
