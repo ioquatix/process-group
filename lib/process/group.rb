@@ -48,7 +48,8 @@ module Process
 		class Fork
 			def initialize(block, options, fiber = Fiber.current)
 				@options = options
-				@block = block
+				
+				raise ArgumentError.new("Fork requires a block!") unless @block = block
 				
 				@fiber = fiber
 			end
@@ -74,6 +75,8 @@ module Process
 		
 		# Create a new process group. Can specify `options[:limit]` which limits the maximum number of concurrent processes.
 		def initialize(limit: nil)
+			@pid = Process.pid
+			
 			@queue = []
 			@limit = limit
 		
@@ -133,6 +136,8 @@ module Process
 		
 		# Wait for all processes to finish, naturally would schedule any fibers which are currently blocked.
 		def wait
+			raise ArgumentError.new("Cannot call Process::Group#wait from child process!") unless @pid == Process.pid
+			
 			while running?
 				process, status = wait_one
 				
@@ -193,7 +198,7 @@ module Process
 				else
 					pid = process.run(:pgroup => @pgid)
 				end
-			
+				
 				@running[pid] = process
 			end
 		end
