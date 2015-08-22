@@ -1,4 +1,4 @@
-# Copyright, 2012, by Samuel G. D. Williams. <http://www.codeotaku.com>
+# Copyright, 2015, by Samuel G. D. Williams. <http://www.codeotaku.com>
 # 
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -20,45 +20,26 @@
 
 require 'process/group'
 
-module Process::Group::ForkSpec
+module Process::Group::LoadSpec
 	describe Process::Group do
-		it "should fork and write to pipe" do
-			group = Process::Group.new
-		
-			input, output = IO.pipe
-		
-			Fiber.new do
-				result = group.fork do
-					output.puts "Hello World"
-				
-					exit(1)
-				end
-				
-				expect(result.exitstatus).to be == 1
-			end.resume
-		
-			output.close
-		
-			group.wait
-		
-			expect(input.read).to be == "Hello World\n"
-		end
-		
-		it "should not throw interrupt from fork" do
-			group = Process::Group.new
-		
-			Fiber.new do
-				result = group.fork do
-					# Don't print out a backtrace when Ruby invariably exits due to the execption below:
-					$stderr.reopen('/dev/null', 'w')
-					
-					raise Interrupt
-				end
+		it "should only run a limited number of processes" do
+			group = Process::Group.new(limit: 5)
 			
-				expect(result.exitstatus).not_to be == 0
-			end.resume
-		
-			# Shouldn't raise any errors:
+			expect(group.available?).to be_truthy
+			expect(group.blocking?).to be_falsey
+			
+			5.times do
+				Fiber.new do
+					result = group.fork do
+						exit(0)
+					end
+					
+					expect(result.exitstatus).to be == 0
+				end.resume
+			end
+			
+			expect(group.blocking?).to be_truthy
+			
 			group.wait
 		end
 	end

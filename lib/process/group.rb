@@ -73,9 +73,9 @@ module Process
 		end
 		
 		# Create a new process group. Can specify `options[:limit]` which limits the maximum number of concurrent processes.
-		def initialize(options = {})
+		def initialize(limit: nil)
 			@queue = []
-			@limit = options[:limit]
+			@limit = limit
 		
 			@running = {}
 			@fiber = nil
