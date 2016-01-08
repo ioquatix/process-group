@@ -157,7 +157,7 @@ module Process
 			@pgid = nil
 		rescue Interrupt
 			# If the user interrupts the wait, interrupt the process group and wait for them to finish:
-			self.kill
+			self.kill(:INT)
 			
 			# If user presses Ctrl-C again (or something else goes wrong), we will come out and kill(:TERM) in the ensure below:
 			wait_all
