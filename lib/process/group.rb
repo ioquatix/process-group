@@ -23,6 +23,7 @@ require 'fiber'
 module Process
 	# A group of tasks which can be run asynchrnously using fibers. Someone must call Group#wait to ensure that all fibers eventually resume.
 	class Group
+		# Executes a command using Process.spawn with the given arguments and options.
 		class Command
 			def initialize(arguments, options, fiber = Fiber.current)
 				@arguments = arguments
@@ -45,6 +46,7 @@ module Process
 			end
 		end
 		
+		# Runs a given block using a forked process.
 		class Fork
 			def initialize(block, options, fiber = Fiber.current)
 				@options = options
@@ -73,8 +75,10 @@ module Process
 			end
 		end
 		
-		# Create a new process group. Can specify `options[:limit]` which limits the maximum number of concurrent processes.
+		# Create a new process group. Can specify `limit:` which limits the maximum number of concurrent processes.
 		def initialize(limit: nil)
+			raise ArgumentError.new("Limit must be nil (unlimited) or > 0") unless limit == nil or limit > 0
+			
 			@pid = Process.pid
 			
 			@queue = []
@@ -99,11 +103,12 @@ module Process
 			-@pgid
 		end
 
+		# Are there processes currently running?
 		def running?
 			@running.size > 0
 		end
 
-		# Run a process, arguments have same meaning as Process#spawn.
+		# Run a process in a new fiber, arguments have same meaning as Process#spawn.
 		def run(*arguments)
 			Fiber.new do
 				exit_status = self.spawn(*arguments)
@@ -112,15 +117,17 @@ module Process
 			end.resume
 		end
 		
+		# Run a specific command as a child process.
 		def spawn(*arguments, **options)
 			append! Command.new(arguments, options)
 		end
 		
+		# Fork a block as a child process.
 		def fork(**options, &block)
 			append! Fork.new(block, options)
 		end
 		
-		# Whether not not calling run would be scheduled immediately.
+		# Whether or not #spawn, #fork or #run can be scheduled immediately.
 		def available?
 			if @limit
 				@running.size < @limit
@@ -129,12 +136,12 @@ module Process
 			end
 		end
 		
-		# Whether or not calling run would block the caller.
+		# Whether or not calling #spawn, #fork or #run would block the caller fiber (i.e. call Fiber.yield).
 		def blocking?
 			not available?
 		end
 		
-		# Wait for all processes to finish, naturally would schedule any fibers which are currently blocked.
+		# Wait for all running and queued processes to finish.
 		def wait
 			raise ArgumentError.new("Cannot call Process::Group#wait from child process!") unless @pid == Process.pid
 			
@@ -150,7 +157,7 @@ module Process
 			@pgid = nil
 		rescue Interrupt
 			# If the user interrupts the wait, interrupt the process group and wait for them to finish:
-			self.kill(:INT)
+			self.kill
 			
 			# If user presses Ctrl-C again (or something else goes wrong), we will come out and kill(:TERM) in the ensure below:
 			wait_all
@@ -168,8 +175,8 @@ module Process
 			wait_all
 		end
 		
-		# Send a signal to all processes.
-		def kill(signal)
+		# Send a signal to all currently running processes. No-op unless #running?
+		def kill(signal = :INT)
 			if running?
 				Process.kill(signal, id)
 			end
@@ -177,6 +184,7 @@ module Process
 		
 		private
 		
+		# Append a process to the queue and schedule it for execution if possible.
 		def append!(process)
 			@queue << process
 			
