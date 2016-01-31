@@ -101,7 +101,7 @@ It is possible to send a signal (kill) to the entire process group:
 
 	group.kill(:TERM)
 
-If there are no running processes, this is a no-op (rather than an error).
+If there are no running processes, this is a no-op (rather than an error). [Proper handling of SIGINT/SIGQUIT](http://www.cons.org/cracauer/sigint.html) explains how to use signals correctly.
 
 #### Handling Interrupts
 
