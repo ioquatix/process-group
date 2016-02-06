@@ -141,9 +141,11 @@ module Process
 			not available?
 		end
 		
-		# Wait for all running and queued processes to finish.
+		# Wait for all running and queued processes to finish. If you provide a block, it will be invoked before waiting, but within canonical signal handling machinery.
 		def wait
 			raise ArgumentError.new("Cannot call Process::Group#wait from child process!") unless @pid == Process.pid
+			
+			yield(self) if block_given?
 			
 			while running?
 				process, status = wait_one
@@ -155,6 +157,8 @@ module Process
 			
 			# No processes, process group is no longer valid:
 			@pgid = nil
+			
+			return self
 		rescue Interrupt
 			# If the user interrupts the wait, interrupt the process group and wait for them to finish:
 			self.kill(:INT)
