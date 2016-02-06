@@ -20,37 +20,33 @@
 
 require 'process/group'
 
-module Process::Group::IOSpec
-	describe Process::Group do
-		it "should read line on separate thread" do
-			group = Process::Group.new
-		
-			input, output = IO.pipe
-		
-			Fiber.new do
-				result = group.fork do
-					3.times do
-						output.puts "Hello World"
-						sleep 0.1
-					end
-				
-					exit(0)
+RSpec.describe Process::Group do
+	it "should read line on separate thread" do
+		input, output = IO.pipe
+	
+		Fiber.new do
+			result = subject.fork do
+				3.times do
+					output.puts "Hello World"
+					sleep 0.1
 				end
-				
-				expect(result).to be == 0
-			end.resume
 			
-			output.close
-			
-			lines = nil
-			io_thread = Thread.new do
-				lines = input.read
+				exit(0)
 			end
 			
-			group.wait
-			
-			io_thread.join
-			expect(lines).to be == ("Hello World\n" * 3)
+			expect(result).to be == 0
+		end.resume
+		
+		output.close
+		
+		lines = nil
+		io_thread = Thread.new do
+			lines = input.read
 		end
+		
+		subject.wait
+		
+		io_thread.join
+		expect(lines).to be == ("Hello World\n" * 3)
 	end
 end

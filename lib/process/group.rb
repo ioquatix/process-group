@@ -21,6 +21,12 @@
 require 'fiber'
 
 module Process
+	def self.group(**options, &block)
+		group = Group.new(options)
+		
+		group.wait(&block)
+	end
+	
 	# A group of tasks which can be run asynchrnously using fibers. Someone must call Group#wait to ensure that all fibers eventually resume.
 	class Group
 		# Executes a command using Process.spawn with the given arguments and options.
@@ -109,9 +115,9 @@ module Process
 		end
 
 		# Run a process in a new fiber, arguments have same meaning as Process#spawn.
-		def run(*arguments)
+		def run(*arguments, **options)
 			Fiber.new do
-				exit_status = self.spawn(*arguments)
+				exit_status = self.spawn(*arguments, **options)
 				
 				yield exit_status if block_given?
 			end.resume
@@ -184,6 +190,10 @@ module Process
 			if running?
 				Process.kill(signal, id)
 			end
+		end
+		
+		def to_s
+			"#<#{self.class} running=#{@running.size} queued=#{@queue.count} limit=#{@limit} pgid=#{@pgid}>"
 		end
 		
 		private

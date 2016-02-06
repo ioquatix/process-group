@@ -1,4 +1,4 @@
-# Copyright, 2015, by Samuel G. D. Williams. <http://www.codeotaku.com>
+# Copyright, 2012, by Samuel G. D. Williams. <http://www.codeotaku.com>
 # 
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -18,38 +18,49 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
-RSpec.describe Process do
-	it "default fork exit status should be 0" do
-		pid = fork do
-		end
+require 'process/group'
+
+RSpec.describe Process::Group do
+	it "should invoke child task normally" do
+		start_time = Time.now
 		
-		Process.waitpid(pid)
+		child_exit_status = nil
 		
-		expect($?.exitstatus).to be == 0
-	end
-	
-	it "should fork and return exit status correctly" do
-		pid = fork do
-			exit(1)
-		end
-		
-		Process.waitpid(pid)
-		
-		expect($?.exitstatus).to be == 1
-	end
-	
-	# This is currently broken on Rubinius.
-	it "should be okay to use fork within a fiber" do
-		pid = nil
-		
-		Fiber.new do
-			pid = fork do
-				exit(2)
+		subject.wait do
+			subject.run("exit 0") do |exit_status|
+				child_exit_status = exit_status
 			end
-		end.resume
+		end
 		
-		Process.waitpid(pid)
+		expect(child_exit_status).to be == 0
+	end
+	
+	it "should kill child task if process is interrupted" do
+		start_time = Time.now
 		
-		expect($?.exitstatus).to be == 2
+		child_exit_status = nil
+		
+		expect do
+			subject.wait do
+				subject.run("sleep 10") do |exit_status|
+					child_exit_status = exit_status
+				end
+				
+				# Simulate the parent (controlling) process receiving an interrupt.
+				raise Interrupt
+			end
+		end.to raise_error(Interrupt)
+		
+		expect(child_exit_status).to_not be == 0
+	end
+	
+	it "should propagate Interrupt" do
+		expect(Process::Group).to receive(:new).once.and_call_original
+		
+		expect do
+			Process.group do |group|
+				raise Interrupt
+			end
+		end.to raise_error(Interrupt)
 	end
 end

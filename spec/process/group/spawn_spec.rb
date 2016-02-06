@@ -20,90 +20,80 @@
 
 require 'process/group'
 
-module Process::Group::SpawnSpec
-	describe Process::Group do
-		it "should execute fibers concurrently" do
-			group = Process::Group.new
+RSpec.describe Process::Group do
+	it "should execute fibers concurrently" do
+		start_time = Time.now
+		
+		Fiber.new do
+			result = subject.fork { sleep 1.0 }
 			
-			start_time = Time.now
+			expect(result).to be == 0
+		end.resume
+		
+		Fiber.new do
+			result = subject.fork { sleep 2.0 }
 			
-			Fiber.new do
-				result = group.fork { sleep 1.0 }
-				
-				expect(result).to be == 0
-			end.resume
-			
-			Fiber.new do
-				result = group.fork { sleep 2.0 }
-				
-				expect(result).to be == 0
-			end.resume
-			
-			group.wait
-			
-			end_time = Time.now
-			
-			# Check that the execution time was roughly 2 seconds:
-			expect(end_time - start_time).to be_within(0.1).of(2.0)
+			expect(result).to be == 0
+		end.resume
+		
+		subject.wait
+		
+		end_time = Time.now
+		
+		# Check that the execution time was roughly 2 seconds:
+		expect(end_time - start_time).to be_within(0.1).of(2.0)
+	end
+	
+	it "should kill commands" do
+		start_time = Time.now
+	
+		subject.run("sleep 1") do |exit_status|
+			expect(exit_status).to_not be 0
 		end
-		
-		it "should kill commands" do
-			group = Process::Group.new
-		
-			start_time = Time.now
-		
-			group.run("sleep 1") do |exit_status|
-				expect(exit_status).to_not be 0
-			end
-		
-			group.run("sleep 2") do |exit_status|
-				expect(exit_status).to_not be 0
-			end
-		
-			group.kill(:KILL)
-		
-			group.wait
-		
-			end_time = Time.now
-		
-			# Check that processes killed almost immediately:
-			expect(end_time - start_time).to be < 0.2
+	
+		subject.run("sleep 2") do |exit_status|
+			expect(exit_status).to_not be 0
 		end
-		
-		it "should pass environment to child process" do
-			group = Process::Group.new
-		
-			env = {'FOO' => 'BAR'}
-		
-			# Make a pipe to receive output from child process:
-			input, output = IO.pipe
-		
-			group.run(env, "echo $FOO", out: output) do |exit_status|
-				output.close
-			end
-		
-			group.wait
-		
-			expect(input.read).to be == "BAR\n"
+	
+		subject.kill(:KILL)
+	
+		subject.wait
+	
+		end_time = Time.now
+	
+		# Check that processes killed almost immediately:
+		expect(end_time - start_time).to be < 0.2
+	end
+	
+	it "should pass environment to child process" do
+		env = {'FOO' => 'BAR'}
+	
+		# Make a pipe to receive output from child process:
+		input, output = IO.pipe
+	
+		subject.run(env, "echo $FOO", out: output) do |exit_status|
+			output.close
 		end
-		
-		it "should yield exit status" do
-			group = Process::Group.new
-		
-			start_time = Time.now
-		
-			group.run("sleep 1")
-		
-			group.run("sleep 1") do |exit_status|
-				expect(exit_status).to be == 0
-			end
-		
-			group.wait
-		
-			end_time = Time.now
-		
-			# Check that the execution time was roughly 1 second:
-			expect(end_time - start_time).to be_within(0.1).of(1.0)
+	
+		subject.wait
+	
+		expect(input.read).to be == "BAR\n"
+	end
+	
+	it "should yield exit status" do
+		start_time = Time.now
+	
+		subject.run("sleep 1")
+	
+		subject.run("sleep 1") do |exit_status|
+			expect(exit_status).to be == 0
 		end
+	
+		subject.wait
+	
+		end_time = Time.now
+	
+		# Check that the execution time was roughly 1 second:
+		expect(end_time - start_time).to be_within(0.1).of(1.0)
 	end
 end

@@ -20,27 +20,23 @@
 
 require 'process/group'
 
-module Process::Group::LoadSpec
-	describe Process::Group do
-		it "should only run a limited number of processes" do
-			group = Process::Group.new(limit: 5)
-			
-			expect(group.available?).to be_truthy
-			expect(group.blocking?).to be_falsey
-			
-			5.times do
-				Fiber.new do
-					result = group.fork do
-						exit(0)
-					end
-					
-					expect(result.exitstatus).to be == 0
-				end.resume
-			end
-			
-			expect(group.blocking?).to be_truthy
-			
-			group.wait
+RSpec.describe Process::Group.new(limit: 5) do
+	it "should only run a limited number of processes" do
+		expect(subject.available?).to be_truthy
+		expect(subject.blocking?).to be_falsey
+		
+		5.times do
+			Fiber.new do
+				result = subject.fork do
+					exit(0)
+				end
+				
+				expect(result.exitstatus).to be == 0
+			end.resume
 		end
+		
+		expect(subject.blocking?).to be_truthy
+		
+		subject.wait
 	end
 end
