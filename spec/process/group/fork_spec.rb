@@ -31,10 +31,13 @@ RSpec.describe Process::Group do
 				exit(1)
 			end
 			
+			# We need to close output so that input.read will encounter end of stream.
+			output.close
+			
 			expect(result.exitstatus).to be == 1
 		end.resume
 		
-		output.close
+		subject.wait
 		
 		expect(input.read).to be == "Hello World\n"
 	end

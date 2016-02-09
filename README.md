@@ -76,9 +76,14 @@ It is also possible to invoke this machinery and reuse the process group simply 
 		group.run("sleep 10")
 	end
 
-However, if you like to live life on the edge, and manage interrupts yourself, you can manually schedule tasks and call wait whenever you like. Keep in mind that it is highly likely to cause incorrect behaviour.
+It is also possible to queue tasks for execution outside the wait block. But by design, it's only possible to execute tasks within the wait block. Tasks added outside a wait block will be queued up for execution when `#wait` is invoked:
 
-
+	group = Process::Group.new
+	
+	group.run("sleep 10")
+	
+	# Run command here:
+	group.wait
 
 ### Specify Options
 

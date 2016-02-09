@@ -34,10 +34,10 @@ RSpec.describe Process::Group do
 				exit(0)
 			end
 			
+			output.close
+			
 			expect(result).to be == 0
 		end.resume
-		
-		output.close
 		
 		lines = nil
 		io_thread = Thread.new do

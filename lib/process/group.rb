@@ -94,6 +94,9 @@ module Process
 			@fiber = nil
 		
 			@pgid = nil
+			
+			# Whether we can actively schedule tasks or not:
+			@waiting = false
 		end
 		
 		# A table of currently running processes.
@@ -108,12 +111,16 @@ module Process
 			
 			-@pgid
 		end
-
+		
+		def queued?
+			@queue.size > 0
+		end
+		
 		# Are there processes currently running?
 		def running?
 			@running.size > 0
 		end
-
+		
 		# Run a process in a new fiber, arguments have same meaning as Process#spawn.
 		def run(*arguments, **options)
 			Fiber.new do
@@ -151,14 +158,16 @@ module Process
 		def wait
 			raise ArgumentError.new("Cannot call Process::Group#wait from child process!") unless @pid == Process.pid
 			
-			yield(self) if block_given?
-			
-			while running?
-				process, status = wait_one
+			waiting do
+				yield(self) if block_given?
 				
-				schedule!
-				
-				process.resume(status)
+				while running?
+					process, status = wait_one
+					
+					schedule!
+					
+					process.resume(status)
+				end
 			end
 			
 			# No processes, process group is no longer valid:
@@ -198,11 +207,27 @@ module Process
 		
 		private
 		
+		# The waiting loop, schedule any outstanding tasks:
+		def waiting
+			@waiting = true
+			
+			# Schedule any queued tasks:
+			schedule!
+			
+			yield
+		ensure
+			@waiting = false
+		end
+		
+		def waiting?
+			@waiting
+		end
+		
 		# Append a process to the queue and schedule it for execution if possible.
 		def append!(process)
 			@queue << process
 			
-			schedule!
+			schedule! if waiting?
 			
 			Fiber.yield
 		end
@@ -228,6 +253,9 @@ module Process
 		# Wait for all children to exit but without resuming any controlling fibers.
 		def wait_all
 			wait_one while running?
+			
+			# Clear any queued tasks:
+			@queue.clear
 		end
 		
 		# Wait for one process, should only be called when a child process has finished, otherwise would block.

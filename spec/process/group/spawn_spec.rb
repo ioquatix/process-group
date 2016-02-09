@@ -55,9 +55,9 @@ RSpec.describe Process::Group do
 			expect(exit_status).to_not be 0
 		end
 	
-		subject.kill(:KILL)
-	
-		subject.wait
+		subject.wait do
+			subject.kill(:KILL)
+		end
 	
 		end_time = Time.now
 	

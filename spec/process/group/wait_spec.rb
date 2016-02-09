@@ -63,4 +63,23 @@ RSpec.describe Process::Group do
 			end
 		end.to raise_error(Interrupt)
 	end
+	
+	it "should clear queue after wait" do
+		subject.limit = 1
+		
+		subject.run("sleep 10")
+		subject.run("sleep 10")
+		
+		expect(subject.running?).to be_falsey
+		expect(subject.queued?).to be_truthy
+		
+		expect do
+			subject.wait do
+				raise Interrupt
+			end
+		end.to raise_error(Interrupt)
+		
+		expect(subject.running?).to be_falsey
+		expect(subject.queued?).to be_falsey
+	end
 end

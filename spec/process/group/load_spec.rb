@@ -35,8 +35,8 @@ RSpec.describe Process::Group.new(limit: 5) do
 			end.resume
 		end
 		
-		expect(subject.blocking?).to be_truthy
-		
-		subject.wait
+		subject.wait do
+			expect(subject.blocking?).to be_truthy
+		end
 	end
 end
