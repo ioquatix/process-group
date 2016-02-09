@@ -21,14 +21,14 @@
 require 'fiber'
 
 module Process
-	def self.group(**options, &block)
-		group = Group.new(options)
-		
-		group.wait(&block)
-	end
-	
 	# A group of tasks which can be run asynchrnously using fibers. Someone must call Group#wait to ensure that all fibers eventually resume.
 	class Group
+		def self.wait(**options, &block)
+			group = Group.new(options)
+			
+			group.wait(&block)
+		end
+		
 		# Executes a command using Process.spawn with the given arguments and options.
 		class Command
 			def initialize(arguments, options, fiber = Fiber.current)

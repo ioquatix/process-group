@@ -58,7 +58,7 @@ RSpec.describe Process::Group do
 		expect(Process::Group).to receive(:new).once.and_call_original
 		
 		expect do
-			Process.group do |group|
+			Process::Group.wait do |group|
 				raise Interrupt
 			end
 		end.to raise_error(Interrupt)

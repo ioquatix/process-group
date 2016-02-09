@@ -12,86 +12,100 @@
 
 Add this line to your application's Gemfile:
 
-    gem 'process-group'
+	gem 'process-group'
 
 And then execute:
 
-    $ bundle
+	$ bundle
 
 Or install it yourself as:
 
-    $ gem install process-group
+	$ gem install process-group
 
 ## Usage
 
 The simplest concurrent usage is as follows:
 
 	# Create a new process group:
-	group = Process::Group.new
-	
-	# Run the command (non-blocking):
-	group.run("sleep 1") do |exit_status|
-		# Running in a separate fiber, will execute this code once the process completes:
-		puts "Command finished with status: #{exit_status}"
+	Process::Group.wait do |group|
+		# Run the command (non-blocking):
+		group.run("sleep 1") do |exit_status|
+			# Running in a separate fiber, will execute this code once the process completes:
+			puts "Command finished with status: #{exit_status}"
+		end
+		
+		# Do something else here:
+		sleep(1)
+		
+		# Wait for all processes in group to finish.
 	end
-	
-	# Do something else here:
-	sleep(1)
-	
-	# Wait for all processes in group to finish:
-	group.wait
 
-The `group.wait` call is an explicit synchronisation point, and if it completes successfully, all processes/fibers have finished successfully. If an error is raised in a fiber, it will be passed back out through `group.wait` and this is the only failure condition. Even if this occurs, all children processes are guaranteed to be cleaned up.
+The `group.wait` call is an explicit synchronization point, and if it completes successfully, all processes/fibers have finished successfully. If an error is raised in a fiber, it will be passed back out through `group.wait` and this is the only failure condition. Even if this occurs, all children processes are guaranteed to be cleaned up.
 
 ### Explicit Fibers
 
 Items within a single fiber will execute sequentially. Processes (e.g. via `Group#spawn`) will run concurrently in multiple fibers.
 
-	group = Process::Group.new
+	Process::Group.wait do |group|
+		# Explicity manage concurrency in this fiber:
+		Fiber.new do
+			# These processes will be run sequentially:
+			group.spawn("sleep 1")
+			group.spawn("sleep 1")
+		end.resume
 	
-	# Explicity manage concurrency in this fiber:
-	Fiber.new do
-		# These processes will be run sequentially:
-		group.spawn("sleep 1")
-		group.spawn("sleep 1")
-	end.resume
-	
-	# Implicitly run this task concurrently as the above fiber:
-	group.run("sleep 2")
-	
-	# Wait for fiber to complete:
-	group.wait
+		# Implicitly run this task concurrently as the above fiber:
+		group.run("sleep 2")
+	end
 
 `Group#spawn` is theoretically identical to `Process#spawn` except the processes are run concurrently if possible.
+
+### Explicit Wait
+
+The recommended approach to use process group is to call `Process::Group.wait` with a block which invokes tasks. This block is wrapped in appropriate `rescue Interrupt` and `ensure` blocks which guarantee that the process group is cleaned up:
+
+	Process::Group.wait do |group|
+		group.run("sleep 10")
+	end
+
+It is also possible to invoke this machinery and reuse the process group simply by instantiating the group and calling wait explicitly:
+
+	group = Process::Group.new
+	
+	group.wait do
+		group.run("sleep 10")
+	end
+
+However, if you like to live life on the edge, and manage interrupts yourself, you can manually schedule tasks and call wait whenever you like. Keep in mind that it is highly likely to cause incorrect behaviour.
+
+
 
 ### Specify Options
 
 You can specify options to `Group#run` and `Group#spawn` just like `Process::spawn`:
 
-	group = Process::Group.new
-	
-	env = {'FOO' => 'BAR'}
-	
-	# Arguments are essentially the same as Process::spawn.
-	group.run(env, "sleep 1", chdir: "/tmp")
-	
-	group.wait
+	Process::Group.wait do |group|
+		env = {'FOO' => 'BAR'}
+		
+		# Arguments are essentially the same as Process::spawn.
+		group.run(env, "sleep 1", chdir: "/tmp")
+	end
 
 ### Process Limit
 
-The process group can be used as a way to spawn multiple processes, but sometimes you'd like to limit the number of parallel processes to something relating to the number of processors in the system. A number of options exist.
+The process group can be used as a way to spawn multiple processes, but sometimes you'd like to limit the number of parallel processes to something relating to the number of processors in the system. By default, there is no limit on the number of processes running concurrently.
 
 	# 'facter' gem - found a bit slow to initialise, but most widely supported.
 	require 'facter'
 	group = Process::Group.new(limit: Facter.processorcount)
-	
+
 	# 'system' gem - found very fast, less wide support (but nothing really important).
 	require 'system'
 	group = Process::Group.new(limit: System::CPU.count)
-	
+
 	# hardcoded - set to n (8 < n < 32) and let the OS scheduler worry about it.
 	group = Process::Group.new(limit: 32)
-	
+
 	# unlimited - default.
 	group = Process::Group.new
 
