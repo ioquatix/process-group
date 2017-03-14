@@ -2,10 +2,12 @@
 
 `Process::Group` allows for multiple fibers to run system processes concurrently with minimal overhead.
 
-	Process::Group.wait do |group|
-		group.run("ls", "-lah") {|status| puts status.inspect}
-		group.run("echo", "Hello World") {|status| puts status.inspect}
-	end
+```ruby
+Process::Group.wait do |group|
+	group.run("ls", "-lah") {|status| puts status.inspect}
+	group.run("echo", "Hello World") {|status| puts status.inspect}
+end
+```
 
 [![Build Status](https://secure.travis-ci.org/ioquatix/process-group.svg)](http://travis-ci.org/ioquatix/process-group)
 [![Code Climate](https://codeclimate.com/github/ioquatix/process-group.svg)](https://codeclimate.com/github/ioquatix/process-group)
@@ -51,17 +53,19 @@ The `group.wait` call is an explicit synchronization point, and if it completes 
 
 Items within a single fiber will execute sequentially. Processes (e.g. via `Group#spawn`) will run concurrently in multiple fibers.
 
-	Process::Group.wait do |group|
-		# Explicity manage concurrency in this fiber:
-		Fiber.new do
-			# These processes will be run sequentially:
-			group.spawn("sleep 1")
-			group.spawn("sleep 1")
-		end.resume
-	
-		# Implicitly run this task concurrently as the above fiber:
-		group.run("sleep 2")
-	end
+```ruby
+Process::Group.wait do |group|
+	# Explicity manage concurrency in this fiber:
+	Fiber.new do
+		# These processes will be run sequentially:
+		group.spawn("sleep 1")
+		group.spawn("sleep 1")
+	end.resume
+
+	# Implicitly run this task concurrently as the above fiber:
+	group.run("sleep 2")
+end
+```
 
 `Group#spawn` is theoretically identical to `Process#spawn` except the processes are run concurrently if possible.
 
@@ -69,61 +73,73 @@ Items within a single fiber will execute sequentially. Processes (e.g. via `Grou
 
 The recommended approach to use process group is to call `Process::Group.wait` with a block which invokes tasks. This block is wrapped in appropriate `rescue Interrupt` and `ensure` blocks which guarantee that the process group is cleaned up:
 
-	Process::Group.wait do |group|
-		group.run("sleep 10")
-	end
+```ruby
+Process::Group.wait do |group|
+	group.run("sleep 10")
+end
+```
 
 It is also possible to invoke this machinery and reuse the process group simply by instantiating the group and calling wait explicitly:
 
-	group = Process::Group.new
-	
-	group.wait do
-		group.run("sleep 10")
-	end
+```ruby
+group = Process::Group.new
+
+group.wait do
+	group.run("sleep 10")
+end
+```
 
 It is also possible to queue tasks for execution outside the wait block. But by design, it's only possible to execute tasks within the wait block. Tasks added outside a wait block will be queued up for execution when `#wait` is invoked:
 
-	group = Process::Group.new
-	
-	group.run("sleep 10")
-	
-	# Run command here:
-	group.wait
+```ruby
+group = Process::Group.new
+
+group.run("sleep 10")
+
+# Run command here:
+group.wait
+```
 
 ### Specify Options
 
 You can specify options to `Group#run` and `Group#spawn` just like `Process::spawn`:
 
-	Process::Group.wait do |group|
-		env = {'FOO' => 'BAR'}
-		
-		# Arguments are essentially the same as Process::spawn.
-		group.run(env, "sleep 1", chdir: "/tmp")
-	end
+```ruby
+Process::Group.wait do |group|
+	env = {'FOO' => 'BAR'}
+	
+	# Arguments are essentially the same as Process::spawn.
+	group.run(env, "sleep 1", chdir: "/tmp")
+end
+```
 
 ### Process Limit
 
 The process group can be used as a way to spawn multiple processes, but sometimes you'd like to limit the number of parallel processes to something relating to the number of processors in the system. By default, there is no limit on the number of processes running concurrently.
 
-	# 'facter' gem - found a bit slow to initialise, but most widely supported.
-	require 'facter'
-	group = Process::Group.new(limit: Facter.processorcount)
+```ruby
+# 'facter' gem - found a bit slow to initialise, but most widely supported.
+require 'facter'
+group = Process::Group.new(limit: Facter.processorcount)
 
-	# 'system' gem - found very fast, less wide support (but nothing really important).
-	require 'system'
-	group = Process::Group.new(limit: System::CPU.count)
+# 'system' gem - found very fast, less wide support (but nothing really important).
+require 'system'
+group = Process::Group.new(limit: System::CPU.count)
 
-	# hardcoded - set to n (8 < n < 32) and let the OS scheduler worry about it.
-	group = Process::Group.new(limit: 32)
+# hardcoded - set to n (8 < n < 32) and let the OS scheduler worry about it.
+group = Process::Group.new(limit: 32)
 
-	# unlimited - default.
-	group = Process::Group.new
+# unlimited - default.
+group = Process::Group.new
+```
 
 ### Kill Group
 
 It is possible to send a signal (kill) to the entire process group:
 
-	group.kill(:TERM)
+```ruby
+group.kill(:TERM)
+```
 
 If there are no running processes, this is a no-op (rather than an error). [Proper handling of SIGINT/SIGQUIT](http://www.cons.org/cracauer/sigint.html) explains how to use signals correctly.
 
@@ -135,43 +151,45 @@ If there are no running processes, this is a no-op (rather than an error). [Prop
 
 You can run a process group with a time limit by using a separate child process:
 
-	group = Process::Group.new
+```ruby
+group = Process::Group.new
+
+class Timeout < StandardError
+end
+
+Fiber.new do
+	# Wait for 2 seconds, let other processes run:
+	group.fork { sleep 2 }
 	
-	class Timeout < StandardError
-	end
+	# If no other processes are running, we are done:
+	Fiber.yield unless group.running?
 	
-	Fiber.new do
-		# Wait for 2 seconds, let other processes run:
-		group.fork { sleep 2 }
-		
-		# If no other processes are running, we are done:
-		Fiber.yield unless group.running?
-		
-		# Send SIGINT to currently running processes:
-		group.kill(:INT)
-		
-		# Wait for 2 seconds, let other processes run:
-		group.fork { sleep 2 }
-		
-		# If no other processes are running, we are done:
-		Fiber.yield unless group.running?
-		
-		# Send SIGTERM to currently running processes:
-		group.kill(:TERM)
-		
-		# Raise an Timeout exception which is based back out:
-		raise Timeout
-	end.resume
+	# Send SIGINT to currently running processes:
+	group.kill(:INT)
 	
-	# Run some other long task:
-	group.run("sleep 10")
+	# Wait for 2 seconds, let other processes run:
+	group.fork { sleep 2 }
 	
-	# Wait for fiber to complete:
-	begin
-		group.wait
-	rescue Timeout
-		puts "Process group was terminated forcefully."
-	end
+	# If no other processes are running, we are done:
+	Fiber.yield unless group.running?
+	
+	# Send SIGTERM to currently running processes:
+	group.kill(:TERM)
+	
+	# Raise an Timeout exception which is based back out:
+	raise Timeout
+end.resume
+
+# Run some other long task:
+group.run("sleep 10")
+
+# Wait for fiber to complete:
+begin
+	group.wait
+rescue Timeout
+	puts "Process group was terminated forcefully."
+end
+```
 
 ## Contributing
 
