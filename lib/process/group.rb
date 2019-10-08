@@ -19,6 +19,7 @@
 # THE SOFTWARE.
 
 require 'fiber'
+require 'process/terminal'
 
 module Process
 	# A group of tasks which can be run asynchrnously using fibers. Someone must call Group#wait to ensure that all fibers eventually resume.
@@ -29,40 +30,56 @@ module Process
 			group.wait(&block)
 		end
 		
-		# Executes a command using Process.spawn with the given arguments and options.
 		class Command
-			def initialize(arguments, options, fiber = Fiber.current)
-				@arguments = arguments
+			def initialize(foreground: false, **options)
 				@options = options
-			
-				@fiber = fiber
-			end
-		
-			attr :arguments
-			attr :options
-		
-			def run(options = {})
-				@pid = Process.spawn(*@arguments, @options.merge(options))
+				@foreground = foreground
 				
-				return @pid
+				@fiber = Fiber.current
+				@pid = nil
 			end
-		
+			
+			attr :options
+			
+			attr :pid
+			
+			def foreground?
+				@foreground
+			end
+			
 			def resume(*arguments)
 				@fiber.resume(*arguments)
 			end
 		end
 		
-		# Runs a given block using a forked process.
-		class Fork
-			def initialize(block, options, fiber = Fiber.current)
-				@options = options
+		# Executes a command using Process.spawn with the given arguments and options.
+		class Spawn < Command
+			def initialize(arguments, **options)
+				@arguments = arguments
 				
-				raise ArgumentError.new("Fork requires a block!") unless @block = block
-				
-				@fiber = fiber
+				super(**options)
 			end
 			
-			def run(options = {})
+			attr :arguments
+			
+			def call(**options)
+				options = @options.merge(options)
+				
+				@pid = Process.spawn(*@arguments, **options)
+			end
+		end
+		
+		# Runs a given block using a forked process.
+		class Fork < Command
+			def initialize(block, **options)
+				@block = block
+				
+				super(**options)
+			end
+			
+			def call(**options)
+				options = @options.merge(options)
+				
 				@pid = Process.fork(&@block)
 				
 				if options[:pgroup] == true
@@ -75,24 +92,26 @@ module Process
 				
 				return @pid
 			end
-		
+			
 			def resume(*arguments)
 				@fiber.resume(*arguments)
 			end
 		end
 		
 		# Create a new process group. Can specify `limit:` which limits the maximum number of concurrent processes.
-		def initialize(limit: nil)
+		def initialize(limit: nil, terminal: Terminal::Device.open)
 			raise ArgumentError.new("Limit must be nil (unlimited) or > 0") unless limit == nil or limit > 0
 			
 			@pid = Process.pid
 			
+			@terminal = terminal
+			
 			@queue = []
 			@limit = limit
-		
+			
 			@running = {}
 			@fiber = nil
-		
+			
 			@pgid = nil
 			
 			# Whether we can actively schedule tasks or not:
@@ -132,12 +151,12 @@ module Process
 		
 		# Run a specific command as a child process.
 		def spawn(*arguments, **options)
-			append! Command.new(arguments, options)
+			append! Spawn.new(arguments, **options)
 		end
 		
 		# Fork a block as a child process.
 		def fork(**options, &block)
-			append! Fork.new(block, options)
+			append! Fork.new(block, **options)
 		end
 		
 		# Whether or not #spawn, #fork or #run can be scheduled immediately.
@@ -236,14 +255,18 @@ module Process
 		def schedule!
 			while available? and @queue.size > 0
 				process = @queue.shift
-			
+				
 				if @running.size == 0
-					pid = process.run(:pgroup => true)
+					pid = process.call(:pgroup => true)
 					
 					# The process group id is the pid of the first process:
 					@pgid = pid
 				else
-					pid = process.run(:pgroup => @pgid)
+					pid = process.call(:pgroup => @pgid)
+				end
+				
+				if @terminal and process.foreground?
+					@terminal.foreground = pid
 				end
 				
 				@running[pid] = process
