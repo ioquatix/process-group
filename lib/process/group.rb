@@ -149,6 +149,12 @@ module Process
 			end.resume
 		end
 		
+		def async
+			Fiber.new do
+				yield self
+			end.resume
+		end
+		
 		# Run a specific command as a child process.
 		def spawn(*arguments, **options)
 			append! Spawn.new(arguments, **options)
