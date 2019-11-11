@@ -9,11 +9,11 @@ Process::Group.wait do |group|
 end
 ```
 
-[![Build Status](https://secure.travis-ci.org/ioquatix/process-group.svg)](http://travis-ci.org/ioquatix/process-group)
-[![Code Climate](https://codeclimate.com/github/ioquatix/process-group.svg)](https://codeclimate.com/github/ioquatix/process-group)
-[![Coverage Status](https://coveralls.io/repos/ioquatix/process-group/badge.svg)](https://coveralls.io/r/ioquatix/process-group)
+[![Build Status](https://secure.travis-ci.org/socketry/process-group.svg)](http://travis-ci.org/socketry/process-group)
+[![Code Climate](https://codeclimate.com/github/socketry/process-group.svg)](https://codeclimate.com/github/socketry/process-group)
+[![Coverage Status](https://coveralls.io/repos/socketry/process-group/badge.svg)](https://coveralls.io/r/socketry/process-group)
 [![Documentation](http://img.shields.io/badge/yard-docs-blue.svg)](http://www.rubydoc.info/gems/process-group)
-[![Code](http://img.shields.io/badge/github-code-blue.svg)](https://github.com/ioquatix/process-group)
+[![Code](http://img.shields.io/badge/github-code-blue.svg)](https://github.com/socketry/process-group)
 
 ## Installation
 
