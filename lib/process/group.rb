@@ -85,9 +85,9 @@ module Process
 				if options[:pgroup] == true
 					# Establishes the child process as a process group leader:
 					Process.setpgid(@pid, 0)
-				else
+				elsif pgroup = options[:pgroup]
 					# Set this process as part of the existing process group:
-					Process.setpgid(@pid, options[:pgroup])
+					Process.setpgid(@pid, pgroup)
 				end
 				
 				return @pid
