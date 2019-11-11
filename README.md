@@ -117,18 +117,14 @@ end
 The process group can be used as a way to spawn multiple processes, but sometimes you'd like to limit the number of parallel processes to something relating to the number of processors in the system. By default, there is no limit on the number of processes running concurrently.
 
 ```ruby
-# 'facter' gem - found a bit slow to initialise, but most widely supported.
-require 'facter'
-group = Process::Group.new(limit: Facter.processorcount)
+# limit based on the number of processors:
+require 'etc'
+group = Process::Group.new(limit: Etc.nprocessors)
 
-# 'system' gem - found very fast, less wide support (but nothing really important).
-require 'system'
-group = Process::Group.new(limit: System::CPU.count)
-
-# hardcoded - set to n (8 < n < 32) and let the OS scheduler worry about it.
+# hardcoded - set to n (8 < n < 32) and let the OS scheduler worry about it:
 group = Process::Group.new(limit: 32)
 
-# unlimited - default.
+# unlimited - default:
 group = Process::Group.new
 ```
 
