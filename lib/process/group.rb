@@ -221,7 +221,7 @@ module Process
 		end
 		
 		def to_s
-			"#<#{self.class} running=#{@running.size} queued=#{@queue.count} limit=#{@limit} pgid=#{@pgid}>"
+			"#<#{self.class} running=#{@running.size} queued=#{@queue.size} limit=#{@limit} pgid=#{@pgid}>"
 		end
 		
 		private
