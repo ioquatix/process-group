@@ -99,7 +99,7 @@ module Process
 		end
 		
 		# Create a new process group. Can specify `limit:` which limits the maximum number of concurrent processes.
-		def initialize(limit: nil, terminal: Terminal::Device.open)
+		def initialize(limit: nil, terminal: Terminal::Device.new?)
 			raise ArgumentError.new("Limit must be nil (unlimited) or > 0") unless limit == nil or limit > 0
 			
 			@pid = Process.pid
