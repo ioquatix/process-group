@@ -41,7 +41,7 @@ RSpec.describe Process::Group do
 			checkpoint += 'A'
 			
 			# This never returns:
-			result = subject.fork do
+			subject.fork do
 				# We do this to exit immediately.. otherwise Ruby will print a backtrace and that's a bit confusing.
 				trap(:INT) { exit!(0) }
 				sleep(0.2)
@@ -79,7 +79,7 @@ RSpec.describe Process::Group do
 			checkpoint += 'A'
 		
 			# This never returns:
-			result = subject.fork { sleep 0.2 }
+			subject.fork { sleep 0.2 }
 		
 			checkpoint += 'B'
 		end.resume
