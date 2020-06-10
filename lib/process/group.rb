@@ -25,7 +25,7 @@ module Process
 	# A group of tasks which can be run asynchrnously using fibers. Someone must call Group#wait to ensure that all fibers eventually resume.
 	class Group
 		def self.wait(**options, &block)
-			group = Group.new(options)
+			group = Group.new(**options)
 			
 			group.wait(&block)
 		end
