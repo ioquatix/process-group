@@ -22,8 +22,6 @@ require 'process/group'
 
 RSpec.describe Process::Group do
 	it "should invoke child task normally" do
-		start_time = Time.now
-		
 		child_exit_status = nil
 		
 		subject.wait do
@@ -36,8 +34,6 @@ RSpec.describe Process::Group do
 	end
 	
 	it "should kill child task if process is interrupted" do
-		start_time = Time.now
-		
 		child_exit_status = nil
 		
 		expect do
