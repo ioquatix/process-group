@@ -2,17 +2,7 @@
 
 `Process::Group` allows for multiple fibers to run system processes concurrently with minimal overhead.
 
-```ruby
-Process::Group.wait do |group|
-	group.run("ls", "-lah") {|status| puts status.inspect}
-	group.run("echo", "Hello World") {|status| puts status.inspect}
-end
-```
-
-[![Build Status](https://secure.travis-ci.com/socketry/process-group.svg)](http://travis-ci.com/socketry/process-group)
-[![Coverage Status](https://coveralls.io/repos/socketry/process-group/badge.svg)](https://coveralls.io/r/socketry/process-group)
-[![Documentation](http://img.shields.io/badge/yard-docs-blue.svg)](http://www.rubydoc.info/gems/process-group)
-[![Code](http://img.shields.io/badge/github-code-blue.svg)](https://github.com/socketry/process-group)
+[![Development Status](https://github.com/socketry/process-group/workflows/Development/badge.svg)](https://github.com/socketry/process-group/actions?workflow=Development)
 
 ## Installation
 
@@ -30,21 +20,32 @@ Or install it yourself as:
 
 ## Usage
 
-The simplest concurrent usage is as follows:
+It is fairly straight forward to run multiple commands in parallel:
 
-	# Create a new process group:
-	Process::Group.wait do |group|
-		# Run the command (non-blocking):
-		group.run("sleep 1") do |exit_status|
-			# Running in a separate fiber, will execute this code once the process completes:
-			puts "Command finished with status: #{exit_status}"
-		end
-		
-		# Do something else here:
-		sleep(1)
-		
-		# Wait for all processes in group to finish.
+```ruby
+Process::Group.wait do |group|
+	group.run("ls", "-lah") {|status| puts status.inspect}
+	group.run("echo", "Hello World") {|status| puts status.inspect}
+end
+```
+
+You can also run Ruby code in parallel with executed commands:
+
+```ruby
+# Create a new process group:
+Process::Group.wait do |group|
+	# Run the command (non-blocking):
+	group.run("sleep 1") do |exit_status|
+		# Running in a separate fiber, will execute this code once the process completes:
+		puts "Command finished with status: #{exit_status}"
 	end
+	
+	# Do something else here:
+	sleep(1)
+	
+	# Wait for all processes in group to finish.
+end
+```
 
 The `group.wait` call is an explicit synchronization point, and if it completes successfully, all processes/fibers have finished successfully. If an error is raised in a fiber, it will be passed back out through `group.wait` and this is the only failure condition. Even if this occurs, all children processes are guaranteed to be cleaned up.
 

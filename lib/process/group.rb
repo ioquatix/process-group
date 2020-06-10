@@ -50,6 +50,10 @@ module Process
 			def resume(*arguments)
 				@fiber.resume(*arguments)
 			end
+			
+			def kill(signal = :INT)
+				Process.kill(signal, @pid)
+			end
 		end
 		
 		# Executes a command using Process.spawn with the given arguments and options.
