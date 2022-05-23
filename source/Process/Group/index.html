@@ -246,11 +246,11 @@ end</code></pre>
 	
 	# Wait for processes in this group:
 	pid, status = Process.wait2(-@pgid, flags)
-
+	
 	return if flags &amp; Process::WNOHANG and pid == nil
-
+	
 	process = @running.delete(pid)
-
+	
 	# This should never happen unless something very odd has happened:
 	raise RuntimeError.new(&quot;Process id=#{pid} is not part of group!&quot;) unless process
 	
