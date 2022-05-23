@@ -2,27 +2,27 @@
 
 `Process::Group` allows for multiple fibers to run system processes concurrently with minimal overhead.
 
-[![Development Status](https://github.com/socketry/process-group/workflows/Development/badge.svg)](https://github.com/socketry/process-group/actions?workflow=Development)
+[![Development Status](https://github.com/ioquatix/process-group/workflows/Development/badge.svg)](https://github.com/ioquatix/process-group/actions?workflow=Development)
 
 ## Installation
 
 Add this line to your application's Gemfile:
 
-	gem 'process-group'
+    gem 'process-group'
 
 And then execute:
 
-	$ bundle
+    $ bundle
 
 Or install it yourself as:
 
-	$ gem install process-group
+    $ gem install process-group
 
 ## Usage
 
 It is fairly straight forward to run multiple commands in parallel:
 
-```ruby
+``` ruby
 Process::Group.wait do |group|
 	group.run("ls", "-lah") {|status| puts status.inspect}
 	group.run("echo", "Hello World") {|status| puts status.inspect}
@@ -31,7 +31,7 @@ end
 
 You can also run Ruby code in parallel with executed commands:
 
-```ruby
+``` ruby
 # Create a new process group:
 Process::Group.wait do |group|
 	# Run the command (non-blocking):
@@ -53,7 +53,7 @@ The `group.wait` call is an explicit synchronization point, and if it completes 
 
 Items within a single fiber will execute sequentially. Processes (e.g. via `Group#spawn`) will run concurrently in multiple fibers.
 
-```ruby
+``` ruby
 Process::Group.wait do |group|
 	# Explicity manage concurrency in this fiber:
 	Fiber.new do
@@ -73,7 +73,7 @@ end
 
 The recommended approach to use process group is to call `Process::Group.wait` with a block which invokes tasks. This block is wrapped in appropriate `rescue Interrupt` and `ensure` blocks which guarantee that the process group is cleaned up:
 
-```ruby
+``` ruby
 Process::Group.wait do |group|
 	group.run("sleep 10")
 end
@@ -81,7 +81,7 @@ end
 
 It is also possible to invoke this machinery and reuse the process group simply by instantiating the group and calling wait explicitly:
 
-```ruby
+``` ruby
 group = Process::Group.new
 
 group.wait do
@@ -91,7 +91,7 @@ end
 
 It is also possible to queue tasks for execution outside the wait block. But by design, it's only possible to execute tasks within the wait block. Tasks added outside a wait block will be queued up for execution when `#wait` is invoked:
 
-```ruby
+``` ruby
 group = Process::Group.new
 
 group.run("sleep 10")
@@ -104,7 +104,7 @@ group.wait
 
 You can specify options to `Group#run` and `Group#spawn` just like `Process::spawn`:
 
-```ruby
+``` ruby
 Process::Group.wait do |group|
 	env = {'FOO' => 'BAR'}
 	
@@ -117,7 +117,7 @@ end
 
 The process group can be used as a way to spawn multiple processes, but sometimes you'd like to limit the number of parallel processes to something relating to the number of processors in the system. By default, there is no limit on the number of processes running concurrently.
 
-```ruby
+``` ruby
 # limit based on the number of processors:
 require 'etc'
 group = Process::Group.new(limit: Etc.nprocessors)
@@ -133,7 +133,7 @@ group = Process::Group.new
 
 It is possible to send a signal (kill) to the entire process group:
 
-```ruby
+``` ruby
 group.kill(:TERM)
 ```
 
@@ -147,7 +147,7 @@ If there are no running processes, this is a no-op (rather than an error). [Prop
 
 You can run a process group with a time limit by using a separate child process:
 
-```ruby
+``` ruby
 group = Process::Group.new
 
 class Timeout < StandardError
@@ -189,11 +189,11 @@ end
 
 ## Contributing
 
-1. Fork it
-2. Create your feature branch (`git checkout -b my-new-feature`)
-3. Commit your changes (`git commit -am 'Add some feature'`)
-4. Push to the branch (`git push origin my-new-feature`)
-5. Create new Pull Request
+1.  Fork it
+2.  Create your feature branch (`git checkout -b my-new-feature`)
+3.  Commit your changes (`git commit -am 'Add some feature'`)
+4.  Push to the branch (`git push origin my-new-feature`)
+5.  Create new Pull Request
 
 ## License
 
