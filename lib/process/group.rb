@@ -127,7 +127,7 @@ module Process
 		
 		# The maximum number of processes to run concurrently, or zero 
 		attr_accessor :limit
-
+		
 		# The id of the process group, only valid if processes are currently running.
 		def id
 			raise RuntimeError.new("No processes in group, no group id available.") if @running.size == 0
@@ -297,11 +297,11 @@ module Process
 			
 			# Wait for processes in this group:
 			pid, status = Process.wait2(-@pgid, flags)
-		
+			
 			return if flags & Process::WNOHANG and pid == nil
-		
+			
 			process = @running.delete(pid)
-		
+			
 			# This should never happen unless something very odd has happened:
 			raise RuntimeError.new("Process id=#{pid} is not part of group!") unless process
 			
