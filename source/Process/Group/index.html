@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		
+			<title>Process::Group</title>
+		
+		<meta charset="UTF-8"/>
+		<meta name="viewport" content="width=device-width, initial-scale=1"/>
+		
+		<link rel="icon" type="image/png" href="../../../_static/icon.png"/>
+		<link rel="stylesheet" href="../../../_static/site.css" type="text/css" media="screen"/>
+		
+		<script src="../../../_components/jquery/jquery.min.js"></script>
+		<script src="../../../_components/jquery-syntax/jquery.syntax.min.js"></script>
+		<script src="../../../_components/mermaid/mermaid.min.js"></script>
+		
+		<script src="../../../_static/links.js"></script>
+		
+		<script type="text/javascript">
+		//<![CDATA[
+			jQuery(function($) {
+				$.syntax();
+			});
+			
+			let isDarkMode = window.matchMedia("(prefers-color-scheme: dark)").matches
+			let config = {theme: 'light'};
+			if (isDarkMode) config.theme = 'dark';
+			else config.theme = 'forest';
+			mermaid.initialize(config);
+		//]]>
+		</script>
+	</head>
+
+	<body>
+		<header> › <a class="link" href="../../../index.html">Project</a> › <a class="link" href="../../index.html">Source</a></header>
+		
+		<main>
+			
+	<h1>Process::Group</h1>
+	
+	<p>
+		<code class="language-ruby">class Process::Group</code>
+	</p>
+	
+	<p>A group of tasks which can be run asynchrnously using fibers. Someone must call Group#wait to ensure that all fibers eventually resume.</p>
+	
+	
+	
+	<section>
+	<h2>Nested</h2>
+	
+	<ul>
+		<li><a href="Command/index.html"><code class="language-ruby">Process::Group::Command</code></a></li>
+		<li><a href="Spawn/index.html"><code class="language-ruby">Process::Group::Spawn</code></a></li>
+		<li><a href="Fork/index.html"><code class="language-ruby">Process::Group::Fork</code></a></li>
+	</ul>
+	</section>
+	
+	<section>
+	<h2>Definitions</h2>
+	
+	<section id="Process::Group#wait"><h3><code class="language-ruby">def wait</code></h3><p>Wait for all running and queued processes to finish. If you provide a block, it will be invoked before waiting, but within canonical signal handling machinery.</p>
+<details>
+						<summary><h4>Implementation</h4></summary>
+						<pre><code class="language-ruby">def wait
+	raise ArgumentError.new(&quot;Cannot call Process::Group#wait from child process!&quot;) unless @pid == Process.pid
+	
+	waiting do
+		yield(self) if block_given?
+		
+		while running?
+			process, status = wait_one
+			
+			schedule!
+			
+			process.resume(status)
+		end
+	end
+	
+	# No processes, process group is no longer valid:
+	@pgid = nil
+	
+	return self
+rescue Interrupt
+	# If the user interrupts the wait, interrupt the process group and wait for them to finish:
+	self.kill(:INT)
+	
+	# If user presses Ctrl-C again (or something else goes wrong), we will come out and kill(:TERM) in the ensure below:
+	wait_all
+	
+	raise
+ensure
+	# You'd only get here with running processes if some unexpected error was thrown in user code:
+	begin
+		self.kill(:TERM)
+	rescue Errno::EPERM
+		# Sometimes, `kill` code can give EPERM, if any signal couldn't be delivered to a child. This might occur if an exception is thrown in the user code (e.g. within the fiber), and there are other zombie processes which haven't been reaped yet. These should be dealt with below, so it shouldn't be an issue to ignore this condition.
+	end
+	
+	# Clean up zombie processes - if user presses Ctrl-C or for some reason something else blows up, exception would propagate back to caller:
+	wait_all
+end</code></pre>
+					</details></section><section id="Process::Group#initialize"><h3><code class="language-ruby">def initialize(limit: nil, terminal: Terminal::Device.new?)</code></h3><p>Create a new process group. Can specify <code>limit:</code> which limits the maximum number of concurrent processes.</p>
+<details>
+						<summary><h4>Implementation</h4></summary>
+						<pre><code class="language-ruby">def initialize(limit: nil, terminal: Terminal::Device.new?)
+	raise ArgumentError.new(&quot;Limit must be nil (unlimited) or &gt; 0&quot;) unless limit == nil or limit &gt; 0
+	
+	@pid = Process.pid
+	
+	@terminal = terminal
+	
+	@queue = []
+	@limit = limit
+	
+	@running = {}
+	@fiber = nil
+	
+	@pgid = nil
+	
+	# Whether we can actively schedule tasks or not:
+	@waiting = false
+end</code></pre>
+					</details></section><section id="Process::Group#running"><h3><code class="language-ruby">attr :running</code></h3><p>A table of currently running processes.</p>
+</section><section id="Process::Group#limit"><h3><code class="language-ruby">attr_accessor :limit</code></h3><p>The maximum number of processes to run concurrently, or zero</p>
+</section><section id="Process::Group#id"><h3><code class="language-ruby">def id</code></h3><p>The id of the process group, only valid if processes are currently running.</p>
+<details>
+						<summary><h4>Implementation</h4></summary>
+						<pre><code class="language-ruby">def id
+	raise RuntimeError.new(&quot;No processes in group, no group id available.&quot;) if @running.size == 0
+	
+	-@pgid
+end</code></pre>
+					</details></section><section id="Process::Group#running?"><h3><code class="language-ruby">def running?</code></h3><p>Are there processes currently running?</p>
+<details>
+						<summary><h4>Implementation</h4></summary>
+						<pre><code class="language-ruby">def running?
+	@running.size &gt; 0
+end</code></pre>
+					</details></section><section id="Process::Group#run"><h3><code class="language-ruby">def run(*arguments, **options)</code></h3><p>Run a process in a new fiber, arguments have same meaning as Process#spawn.</p>
+<details>
+						<summary><h4>Implementation</h4></summary>
+						<pre><code class="language-ruby">def run(*arguments, **options)
+	Fiber.new do
+		exit_status = self.spawn(*arguments, **options)
+		
+		yield exit_status if block_given?
+	end.resume
+end</code></pre>
+					</details></section><section id="Process::Group#spawn"><h3><code class="language-ruby">def spawn(*arguments, **options)</code></h3><p>Run a specific command as a child process.</p>
+<details>
+						<summary><h4>Implementation</h4></summary>
+						<pre><code class="language-ruby">def spawn(*arguments, **options)
+	append! Spawn.new(arguments, **options)
+end</code></pre>
+					</details></section><section id="Process::Group#fork"><h3><code class="language-ruby">def fork(**options, &amp;block)</code></h3><p>Fork a block as a child process.</p>
+<details>
+						<summary><h4>Implementation</h4></summary>
+						<pre><code class="language-ruby">def fork(**options, &amp;block)
+	append! Fork.new(block, **options)
+end</code></pre>
+					</details></section><section id="Process::Group#available?"><h3><code class="language-ruby">def available?</code></h3><p>Whether or not #spawn, #fork or #run can be scheduled immediately.</p>
+<details>
+						<summary><h4>Implementation</h4></summary>
+						<pre><code class="language-ruby">def available?
+	if @limit
+		@running.size &lt; @limit
+	else
+		true
+	end
+end</code></pre>
+					</details></section><section id="Process::Group#blocking?"><h3><code class="language-ruby">def blocking?</code></h3><p>Whether or not calling #spawn, #fork or #run would block the caller fiber (i.e. call Fiber.yield).</p>
+<details>
+						<summary><h4>Implementation</h4></summary>
+						<pre><code class="language-ruby">def blocking?
+	not available?
+end</code></pre>
+					</details></section><section id="Process::Group#kill"><h3><code class="language-ruby">def kill(signal = :INT)</code></h3><p>Send a signal to all currently running processes. No-op unless #running?</p>
+<details>
+						<summary><h4>Implementation</h4></summary>
+						<pre><code class="language-ruby">def kill(signal = :INT)
+	if running?
+		Process.kill(signal, id)
+	end
+end</code></pre>
+					</details></section><section id="Process::Group#waiting"><h3><code class="language-ruby">def waiting</code></h3><p>The waiting loop, schedule any outstanding tasks:</p>
+<details>
+						<summary><h4>Implementation</h4></summary>
+						<pre><code class="language-ruby">def waiting
+	@waiting = true
+	
+	# Schedule any queued tasks:
+	schedule!
+	
+	yield
+ensure
+	@waiting = false
+end</code></pre>
+					</details></section><section id="Process::Group#append!"><h3><code class="language-ruby">def append!(process)</code></h3><p>Append a process to the queue and schedule it for execution if possible.</p>
+<details>
+						<summary><h4>Implementation</h4></summary>
+						<pre><code class="language-ruby">def append!(process)
+	@queue &lt;&lt; process
+	
+	schedule! if waiting?
+	
+	Fiber.yield
+end</code></pre>
+					</details></section><section id="Process::Group#schedule!"><h3><code class="language-ruby">def schedule!</code></h3><p>Run any processes while space is available in the group.</p>
+<details>
+						<summary><h4>Implementation</h4></summary>
+						<pre><code class="language-ruby">def schedule!
+	while available? and @queue.size &gt; 0
+		process = @queue.shift
+		
+		if @running.size == 0
+			pid = process.call(:pgroup =&gt; true)
+			
+			# The process group id is the pid of the first process:
+			@pgid = pid
+		else
+			pid = process.call(:pgroup =&gt; @pgid)
+		end
+		
+		if @terminal and process.foreground?
+			@terminal.foreground = pid
+		end
+		
+		@running[pid] = process
+	end
+end</code></pre>
+					</details></section><section id="Process::Group#wait_all"><h3><code class="language-ruby">def wait_all</code></h3><p>Wait for all children to exit but without resuming any controlling fibers.</p>
+<details>
+						<summary><h4>Implementation</h4></summary>
+						<pre><code class="language-ruby">def wait_all
+	wait_one while running?
+	
+	# Clear any queued tasks:
+	@queue.clear
+end</code></pre>
+					</details></section><section id="Process::Group#wait_one"><h3><code class="language-ruby">def wait_one(flags = 0)</code></h3><p>Wait for one process, should only be called when a child process has finished, otherwise would block.</p>
+<details>
+						<summary><h4>Implementation</h4></summary>
+						<pre><code class="language-ruby">def wait_one(flags = 0)
+	raise RuntimeError.new(&quot;Process group has no running children!&quot;) unless running?
+	
+	# Wait for processes in this group:
+	pid, status = Process.wait2(-@pgid, flags)
+
+	return if flags &amp; Process::WNOHANG and pid == nil
+
+	process = @running.delete(pid)
+
+	# This should never happen unless something very odd has happened:
+	raise RuntimeError.new(&quot;Process id=#{pid} is not part of group!&quot;) unless process
+	
+	return process, status
+end</code></pre>
+					</details></section>	</section>
+	
+	
+
+				
+			<footer>Documentation generated by <a href="https://github.com/socketry/utopia-project">Utopia::Project</a>.</footer>
+		</main>
+	</body>
+</html>
+

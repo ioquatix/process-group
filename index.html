@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		
+			<title>Process::Group</title>
+		
+		<meta charset="UTF-8"/>
+		<meta name="viewport" content="width=device-width, initial-scale=1"/>
+		
+		<link rel="icon" type="image/png" href="_static/icon.png"/>
+		<link rel="stylesheet" href="_static/site.css" type="text/css" media="screen"/>
+		
+		<script src="_components/jquery/jquery.min.js"></script>
+		<script src="_components/jquery-syntax/jquery.syntax.min.js"></script>
+		<script src="_components/mermaid/mermaid.min.js"></script>
+		
+		<script src="_static/links.js"></script>
+		
+		<script type="text/javascript">
+		//<![CDATA[
+			jQuery(function($) {
+				$.syntax();
+			});
+			
+			let isDarkMode = window.matchMedia("(prefers-color-scheme: dark)").matches
+			let config = {theme: 'light'};
+			if (isDarkMode) config.theme = 'dark';
+			else config.theme = 'forest';
+			mermaid.initialize(config);
+		//]]>
+		</script>
+	</head>
+
+	<body>
+		<header> › <a class="link" href="index.html">Project</a></header>
+		
+		<main>
+			
+	<h1>Process::Group</h1><p><code>Process::Group</code> allows for multiple fibers to run system processes concurrently with minimal overhead.</p>
+<p><a href="https://github.com/ioquatix/process-group/actions?workflow=Development"><img src="https://github.com/ioquatix/process-group/workflows/Development/badge.svg" alt="Development Status"/></a></p>
+<section id="installation"><h2>Installation</h2>
+<p>Add this line to your application's Gemfile:</p>
+<pre><code>gem 'process-group'
+</code></pre>
+<p>And then execute:</p>
+<pre><code>$ bundle
+</code></pre>
+<p>Or install it yourself as:</p>
+<pre><code>$ gem install process-group
+</code></pre>
+</section><section id="usage"><h2>Usage</h2>
+<p>Please browse the <a href="source/index.html">source code index</a> or refer to the guides below.</p>
+
+
+</section><section id="explicit-fibers"><h3>Explicit Fibers</h3>
+<p>Items within a single fiber will execute sequentially. Processes (e.g. via <code>Group#spawn</code>) will run concurrently in multiple fibers.</p>
+<pre><code class="language-ruby">Process::Group.wait do |group|
+	# Explicity manage concurrency in this fiber:
+	Fiber.new do
+		# These processes will be run sequentially:
+		group.spawn(&quot;sleep 1&quot;)
+		group.spawn(&quot;sleep 1&quot;)
+	end.resume
+
+	# Implicitly run this task concurrently as the above fiber:
+	group.run(&quot;sleep 2&quot;)
+end
+</code></pre>
+<p><code>Group#spawn</code> is theoretically identical to <code>Process#spawn</code> except the processes are run concurrently if possible.</p>
+</section><section id="explicit-wait"><h3>Explicit Wait</h3>
+<p>The recommended approach to use process group is to call <code>Process::Group.wait</code> with a block which invokes tasks. This block is wrapped in appropriate <code>rescue Interrupt</code> and <code>ensure</code> blocks which guarantee that the process group is cleaned up:</p>
+<pre><code class="language-ruby">Process::Group.wait do |group|
+	group.run(&quot;sleep 10&quot;)
+end
+</code></pre>
+<p>It is also possible to invoke this machinery and reuse the process group simply by instantiating the group and calling wait explicitly:</p>
+<pre><code class="language-ruby">group = Process::Group.new
+
+group.wait do
+	group.run(&quot;sleep 10&quot;)
+end
+</code></pre>
+<p>It is also possible to queue tasks for execution outside the wait block. But by design, it's only possible to execute tasks within the wait block. Tasks added outside a wait block will be queued up for execution when <code>#wait</code> is invoked:</p>
+<pre><code class="language-ruby">group = Process::Group.new
+
+group.run(&quot;sleep 10&quot;)
+
+# Run command here:
+group.wait
+</code></pre>
+</section><section id="specify-options"><h3>Specify Options</h3>
+<p>You can specify options to <code>Group#run</code> and <code>Group#spawn</code> just like <code>Process::spawn</code>:</p>
+<pre><code class="language-ruby">Process::Group.wait do |group|
+	env = {'FOO' =&gt; 'BAR'}
+	
+	# Arguments are essentially the same as Process::spawn.
+	group.run(env, &quot;sleep 1&quot;, chdir: &quot;/tmp&quot;)
+end
+</code></pre>
+</section><section id="process-limit"><h3>Process Limit</h3>
+<p>The process group can be used as a way to spawn multiple processes, but sometimes you'd like to limit the number of parallel processes to something relating to the number of processors in the system. By default, there is no limit on the number of processes running concurrently.</p>
+<pre><code class="language-ruby"># limit based on the number of processors:
+require 'etc'
+group = Process::Group.new(limit: Etc.nprocessors)
+
+# hardcoded - set to n (8 &lt; n &lt; 32) and let the OS scheduler worry about it:
+group = Process::Group.new(limit: 32)
+
+# unlimited - default:
+group = Process::Group.new
+</code></pre>
+</section><section id="kill-group"><h3>Kill Group</h3>
+<p>It is possible to send a signal (kill) to the entire process group:</p>
+<pre><code class="language-ruby">group.kill(:TERM)
+</code></pre>
+<p>If there are no running processes, this is a no-op (rather than an error). <a href="http://www.cons.org/cracauer/sigint.html">Proper handling of SIGINT/SIGQUIT</a> explains how to use signals correctly.</p>
+</section><section id="handling-interrupts"><h4>Handling Interrupts</h4>
+<p><code>Process::Group</code> transparently handles <code>Interrupt</code> when raised within a <code>Fiber</code>. If <code>Interrupt</code> is raised, all children processes will be sent <code>kill(:INT)</code> and we will wait for all children to complete, but without resuming the controlling fibers. If <code>Interrupt</code> is raised during this process, children will be sent <code>kill(:TERM)</code>. After calling <code>Interrupt</code>, the fibers will not be resumed.</p>
+</section><section id="process-timeout"><h3>Process Timeout</h3>
+<p>You can run a process group with a time limit by using a separate child process:</p>
+<pre><code class="language-ruby">group = Process::Group.new
+
+class Timeout &lt; StandardError
+end
+
+Fiber.new do
+	# Wait for 2 seconds, let other processes run:
+	group.fork { sleep 2 }
+	
+	# If no other processes are running, we are done:
+	Fiber.yield unless group.running?
+	
+	# Send SIGINT to currently running processes:
+	group.kill(:INT)
+	
+	# Wait for 2 seconds, let other processes run:
+	group.fork { sleep 2 }
+	
+	# If no other processes are running, we are done:
+	Fiber.yield unless group.running?
+	
+	# Send SIGTERM to currently running processes:
+	group.kill(:TERM)
+	
+	# Raise an Timeout exception which is based back out:
+	raise Timeout
+end.resume
+
+# Run some other long task:
+group.run(&quot;sleep 10&quot;)
+
+# Wait for fiber to complete:
+begin
+	group.wait
+rescue Timeout
+	puts &quot;Process group was terminated forcefully.&quot;
+end
+</code></pre>
+</section><section id="contributing"><h2>Contributing</h2>
+<ol>
+<li>Fork it</li>
+<li>Create your feature branch (<code>git checkout -b my-new-feature</code>)</li>
+<li>Commit your changes (<code>git commit -am 'Add some feature'</code>)</li>
+<li>Push to the branch (<code>git push origin my-new-feature</code>)</li>
+<li>Create new Pull Request</li>
+</ol>
+</section><section id="license"><h2>License</h2>
+<p>Released under the MIT license.</p>
+<p>Copyright, 2014, by <a href="http://www.codeotaku.com/samuel-williams">Samuel G. D. Williams</a>.</p>
+<p>Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the &quot;Software&quot;), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:</p>
+<p>The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.</p>
+<p>THE SOFTWARE IS PROVIDED &quot;AS IS&quot;, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.</p>
+</section>
+				
+			<footer>Documentation generated by <a href="https://github.com/socketry/utopia-project">Utopia::Project</a>.</footer>
+		</main>
+	</body>
+</html>
