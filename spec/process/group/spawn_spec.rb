@@ -41,7 +41,7 @@ RSpec.describe Process::Group do
 		end_time = Time.now
 		
 		# Check that the execution time was roughly 2 seconds:
-		expect(end_time - start_time).to be_within(0.1).of(2.0)
+		expect(end_time - start_time).to be_within(0.2).of(2.0)
 	end
 	
 	it "should kill commands" do
@@ -94,6 +94,6 @@ RSpec.describe Process::Group do
 		end_time = Time.now
 	
 		# Check that the execution time was roughly 1 second:
-		expect(end_time - start_time).to be_within(0.1).of(1.0)
+		expect(end_time - start_time).to be_within(0.2).of(1.0)
 	end
 end
